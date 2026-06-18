@@ -1,0 +1,67 @@
+export type Material = {
+  id: string
+  studio_id: string
+  name: string
+  color: string
+  created_at: string
+}
+
+export type Order = {
+  id: string
+  studio_id: string
+  order_number: string
+  customer_name: string
+  customer_phone: string | null
+  customer_email: string | null
+  grillz_type: string
+  material: string
+  price: number
+  column_index: number
+  impression_link_sent: boolean
+  impression_date: string | null
+  fitting_link_sent: boolean
+  fitting_date: string | null
+  notes: string[]
+  created_at: string
+  updated_at: string
+}
+
+export type Studio = {
+  id: string
+  name: string
+  city: string
+  owner_id: string
+  webhook_send_url: string | null
+  webhook_poll_url: string | null
+  cal_impression_url: string | null
+  cal_fitting_url: string | null
+  cal_webhook_secret: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  subscription_status: 'trialing' | 'active' | 'past_due' | 'canceled' | null
+  created_at: string
+}
+
+export type Profile = {
+  id: string
+  email: string
+  full_name: string | null
+  role: 'admin' | 'studio_owner'
+  studio_id: string | null
+  created_at: string
+}
+
+export const COLUMNS = [
+  { label: 'New order',                    next: 'Approve' },
+  { label: 'Dental impression appt.',      next: 'Appointment done' },
+  { label: 'Completed dental impressions', next: 'Start wax-up' },
+  { label: 'Wax up',                       next: 'Wax-up done' },
+  { label: 'Ready to be casted',           next: 'Cast' },
+  { label: 'Casted',                       next: 'Ready for fitting' },
+  { label: 'Ready for fitting',            next: 'Fitting done' },
+  { label: 'Complete order',               next: null },
+] as const
+
+export const IMPRESSION_COL = 1
+export const FITTING_COL = 6
+export const NOTE_PRESETS = ['Gem', 'Enamel', 'Diamond cut', 'Custom design', 'Rush order', 'VIP']
