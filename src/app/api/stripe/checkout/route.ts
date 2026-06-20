@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-05-27.dahlia' })
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('your_')) {
+    throw new Error('Stripe is not configured. Add STRIPE_SECRET_KEY to your environment variables.')
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-05-27.dahlia' })
+}
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -10,6 +15,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { priceId, studioId } = await req.json()
+  const stripe = getStripe()
 
   const { data: studio } = await supabase.from('studios').select('stripe_customer_id, name').eq('id', studioId).single()
 
