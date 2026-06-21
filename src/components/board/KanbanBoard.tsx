@@ -150,15 +150,11 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
     await updateOrder(orderId, { notes: o.notes.filter(n => n !== note) })
   }
 
-  async function saveWebhooks() {
-    await supabase.from('studios').update({
-      webhook_send_url:   wh.send || null,
-      webhook_poll_url:   wh.poll || null,
-      cal_impression_url: cal.impressionUrl || null,
-      cal_fitting_url:    cal.fittingUrl    || null,
-      cal_webhook_secret: cal.webhookSecret || null,
-    }).eq('id', studio.id)
-    toast('Settings saved', 'Cal.com and Make.com settings have been saved.')
+  async function deleteOrder(id: string) {
+    setOrders(prev => prev.filter(o => o.id !== id))
+    setOpenCard(null)
+    await supabase.from('orders').delete().eq('id', id)
+    toast('Order deleted', 'The completed order has been removed.')
   }
 
   async function addMaterial() {
@@ -269,6 +265,7 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
             onNext={async () => { await moveOrder(activeCard.id, activeCard.column_index + 1); setOpenCard(null) }}
             onAddNote={n => addNote(activeCard.id, n)}
             onRemoveNote={n => removeNote(activeCard.id, n)}
+            onDelete={() => deleteOrder(activeCard.id)}
             onClose={() => setOpenCard(null)}
           />
         </Modal>
@@ -300,11 +297,11 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
         </Modal>
       )}
 
-      {/* Settings modal */}
+      {/* Settings modal — materials only (webhooks managed by admin) */}
       {showSettings && (
         <Modal onClose={() => setShowSettings(false)} wide>
           <div style={{ fontFamily:'Georgia,serif', fontSize:'19px', fontWeight:600, marginBottom:'4px' }}>Settings</div>
-          <div style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'20px' }}>Materials and Make.com webhook configuration.</div>
+          <div style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'20px' }}>Manage the materials available for your studio.</div>
 
           <SectionTitle>Materials</SectionTitle>
           <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginBottom:'10px' }}>
@@ -322,38 +319,8 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
             <button onClick={addMaterial} style={{ ...ghostBtn, flex:'0 0 auto', padding:'8px 14px', marginTop:0 }}>Add</button>
           </div>
 
-          <SectionTitle>Cal.com</SectionTitle>
-          <Field label="DENTAL IMPRESSION — Cal.com event URL">
-            <Input placeholder="https://cal.com/yourname/dental-impression" value={cal.impressionUrl} onChange={v => setCal(p => ({...p, impressionUrl:v}))} />
-          </Field>
-          <Field label="FITTING — Cal.com event URL">
-            <Input placeholder="https://cal.com/yourname/fitting" value={cal.fittingUrl} onChange={v => setCal(p => ({...p, fittingUrl:v}))} />
-          </Field>
-          <Field label="CAL.COM WEBHOOK SECRET">
-            <Input placeholder="from Cal.com → Settings → Webhooks" value={cal.webhookSecret} onChange={v => setCal(p => ({...p, webhookSecret:v}))} />
-          </Field>
-          <div style={{ fontSize:'11px', color:'var(--txt-3)', lineHeight:1.8, padding:'10px 12px', background:'#0F0F12', borderRadius:'9px', border:'1px solid var(--line)', marginBottom:'18px' }}>
-            <strong style={{ color:'var(--txt-2)' }}>How it works</strong><br/>
-            1. Order moves column → Make.com sends customer the Cal.com link<br/>
-            2. Customer books → Cal.com fires a webhook to your app:<br/>
-            <code style={{ color:'var(--gold)', fontFamily:'monospace' }}>/api/cal/webhook</code><br/>
-            3. App reads the order ID from the booking metadata and confirms automatically — no polling needed.<br/><br/>
-            <strong style={{ color:'var(--txt-2)' }}>In Cal.com → Settings → Webhooks</strong><br/>
-            Set subscriber URL to <code style={{ color:'var(--gold)', fontFamily:'monospace' }}>https://yourapp.com/api/cal/webhook</code> and enable <strong style={{ color:'var(--txt-2)' }}>BOOKING_CREATED</strong>.
-          </div>
-
-          <SectionTitle>Make.com — send link</SectionTitle>
-          <Field label="WEBHOOK URL">
-            <Input placeholder="https://hook.eu2.make.com/…" value={wh.send} onChange={v => setWh(p => ({...p, send:v}))} />
-          </Field>
-          <div style={{ fontSize:'11px', color:'var(--txt-3)', lineHeight:1.6, padding:'10px 12px', background:'#0F0F12', borderRadius:'9px', border:'1px solid var(--line)', marginBottom:'18px' }}>
-            Receives: <code style={{ color:'var(--gold)', fontFamily:'monospace' }}>{'{ name, phone, email, calLink, type, orderId }'}</code><br/>
-            Use <code style={{ color:'var(--gold)', fontFamily:'monospace' }}>calLink</code> as the booking URL — the order ID is already embedded in it.
-          </div>
-
           <div style={{ display:'flex', gap:'9px' }}>
-            <button onClick={() => setShowSettings(false)} style={ghostBtn}>Close</button>
-            <button onClick={saveWebhooks} style={primaryBtn}>Save settings</button>
+            <button onClick={() => setShowSettings(false)} style={primaryBtn}>Done</button>
           </div>
         </Modal>
       )}
@@ -367,9 +334,9 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
 }
 
 // ---- Card detail ----
-function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onClose }: {
+function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
   order: Order; materials: Material[]
-  onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onClose: () => void
+  onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onDelete: () => void; onClose: () => void
 }) {
   const [noteInput, setNoteInput] = useState('')
   const col = COLUMNS[o.column_index]
@@ -428,6 +395,12 @@ function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onCl
       <div style={{ display:'flex', gap:'9px', marginTop:'18px' }}>
         <button onClick={onClose} style={ghostBtn}>Close</button>
         {col.next && <button onClick={onNext} style={primaryBtn}>{col.next} ▸</button>}
+        {!col.next && (
+          <button onClick={() => { if (confirm(`Delete order #${o.order_number} for ${o.customer_name}? This cannot be undone.`)) onDelete() }}
+            style={{ ...ghostBtn, borderColor:'rgba(224,92,92,.4)', color:'var(--red)' }}>
+            Delete order
+          </button>
+        )}
       </div>
     </>
   )
