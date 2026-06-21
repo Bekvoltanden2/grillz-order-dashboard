@@ -50,6 +50,23 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
     router.refresh()
   }
 
+  // Opt-in debug view: visit /admin?debug=1 to dump exactly what the client receives
+  const isDebug = typeof window !== 'undefined' && window.location.search.includes('debug')
+  if (isDebug) {
+    return (
+      <div style={{ padding:'30px', background:'#0C0C0E', color:'#F5F2EA', minHeight:'100vh', fontFamily:'monospace', fontSize:'12px' }}>
+        <div style={{ color:'#E8C77E', fontSize:'16px', marginBottom:'14px' }}>Admin debug — raw client data</div>
+        <div style={{ color:'#6dd49a', marginBottom:'10px' }}>
+          studios: {studios.length} · allOrders: {allOrders.length}
+        </div>
+        <div style={{ color:'#9A968C', marginBottom:'6px' }}>STUDIOS:</div>
+        <pre style={{ whiteSpace:'pre-wrap', marginBottom:'18px' }}>{JSON.stringify(studios, null, 2)}</pre>
+        <div style={{ color:'#9A968C', marginBottom:'6px' }}>ALL ORDERS:</div>
+        <pre style={{ whiteSpace:'pre-wrap' }}>{JSON.stringify(allOrders, null, 2)}</pre>
+      </div>
+    )
+  }
+
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:'var(--bg)' }}>
 
