@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminDashboard from './AdminDashboard'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -32,10 +33,12 @@ export default async function AdminPage() {
   }))
 
   return (
-    <AdminDashboard
-      studios={studios ?? []}
-      allOrders={allOrders}
-      adminEmail={user.email ?? ''}
-    />
+    <ErrorBoundary>
+      <AdminDashboard
+        studios={studios ?? []}
+        allOrders={allOrders}
+        adminEmail={user.email ?? ''}
+      />
+    </ErrorBoundary>
   )
 }
