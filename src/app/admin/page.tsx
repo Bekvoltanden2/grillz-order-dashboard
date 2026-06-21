@@ -12,24 +12,24 @@ export default async function AdminPage() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  // Fetch all studios with their orders
-  const { data: studios, error: studiosError } = await supabase
-    .from('studios')
-    .select('*, orders(*)')
-    .order('created_at')
+  // Fetch studios and orders separately to avoid nested null issues
+  const { data: studiosRaw } = await supabase.from('studios').select('*').order('created_at')
+  const { data: ordersRaw  } = await supabase.from('orders').select('*').order('created_at', { ascending: false })
 
-  if (studiosError) {
-    console.error('Admin studios fetch error:', studiosError)
-  }
+  const safeStudios = (studiosRaw ?? []).filter((s: any) => s?.id)
+  const safeOrders  = (ordersRaw  ?? []).filter((o: any) => o?.id)
 
-  // Aggregate stats — filter out any null rows Supabase may return
-  const allOrders = (studios ?? [])
-    .filter((s: any) => s != null)
-    .flatMap((s: any) =>
-      (s.orders ?? [])
-        .filter((o: any) => o != null && o.id != null)
-        .map((o: any) => ({ ...o, studioName: s.name, studioId: s.id }))
-    )
+  // Attach orders to each studio
+  const studios = safeStudios.map((s: any) => ({
+    ...s,
+    orders: safeOrders.filter((o: any) => o.studio_id === s.id)
+  }))
+
+  const allOrders = safeOrders.map((o: any) => ({
+    ...o,
+    studioName: safeStudios.find((s: any) => s.id === o.studio_id)?.name ?? 'Unknown',
+    studioId: o.studio_id
+  }))
 
   return (
     <AdminDashboard
