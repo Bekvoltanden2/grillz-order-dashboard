@@ -337,8 +337,10 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
 function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
   order: Order; materials: Material[]
   onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onDelete: () => void; onClose: () => void
+
 }) {
   const [noteInput, setNoteInput] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const col = COLUMNS[o.column_index]
   return (
     <>
@@ -395,11 +397,19 @@ function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onDe
       <div style={{ display:'flex', gap:'9px', marginTop:'18px' }}>
         <button onClick={onClose} style={ghostBtn}>Close</button>
         {col.next && <button onClick={onNext} style={primaryBtn}>{col.next} ▸</button>}
-        {!col.next && (
-          <button onClick={() => { if (confirm(`Delete order #${o.order_number} for ${o.customer_name}? This cannot be undone.`)) onDelete() }}
+        {!col.next && !confirmDelete && (
+          <button onClick={() => setConfirmDelete(true)}
             style={{ ...ghostBtn, borderColor:'rgba(224,92,92,.4)', color:'var(--red)' }}>
             Delete order
           </button>
+        )}
+        {!col.next && confirmDelete && (
+          <>
+            <button onClick={() => setConfirmDelete(false)} style={ghostBtn}>Cancel</button>
+            <button onClick={onDelete} style={{ ...ghostBtn, borderColor:'rgba(224,92,92,.4)', color:'var(--red)', fontWeight:700 }}>
+              Confirm delete
+            </button>
+          </>
         )}
       </div>
     </>
