@@ -32,6 +32,9 @@ export default async function AdminPage() {
     studioId: o.studio_id
   }))
 
+  // Temp: log what we're sending to client
+  console.log('Admin page data:', JSON.stringify({ studios: studios?.length, orders: allOrders?.length, s0: studios?.[0]?.id, o0: allOrders?.[0]?.id }))
+
   return (
     <ErrorBoundary>
       <AdminDashboard
