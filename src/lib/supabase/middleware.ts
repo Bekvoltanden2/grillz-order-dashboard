@@ -25,8 +25,14 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Public routes
-  if (pathname.startsWith('/login') || pathname.startsWith('/auth') || pathname === '/') {
+  // Public routes (no auth required)
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/cal') ||
+    pathname.startsWith('/api/stripe/webhook') ||
+    pathname === '/'
+  ) {
     return supabaseResponse
   }
 
