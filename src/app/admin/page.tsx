@@ -13,10 +13,14 @@ export default async function AdminPage() {
   if (profile?.role !== 'admin') redirect('/dashboard')
 
   // Fetch all studios with their orders
-  const { data: studios } = await supabase
+  const { data: studios, error: studiosError } = await supabase
     .from('studios')
-    .select('*, orders(*), profiles!studios_owner_id_fkey(email, full_name)')
+    .select('*, orders(*)')
     .order('created_at')
+
+  if (studiosError) {
+    console.error('Admin studios fetch error:', studiosError)
+  }
 
   // Aggregate stats
   const allOrders = (studios ?? []).flatMap((s: any) =>
