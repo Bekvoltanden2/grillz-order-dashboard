@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  /* React Compiler disabled — caused a client-side render crash in the admin dashboard */
+  reactCompiler: false,
 };
 
 export default nextConfig;

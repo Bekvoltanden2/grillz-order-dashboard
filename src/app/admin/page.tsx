@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import AdminDashboard from './AdminDashboard'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ debug?: string }> }) {
+  const sp = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -32,8 +33,19 @@ export default async function AdminPage() {
     studioId: o.studio_id
   }))
 
-  // Temp: log what we're sending to client
-  console.log('Admin page data:', JSON.stringify({ studios: studios?.length, orders: allOrders?.length, s0: studios?.[0]?.id, o0: allOrders?.[0]?.id }))
+  // Server-side debug dump — bulletproof, runs before any client render
+  if (sp?.debug) {
+    return (
+      <div style={{ padding:'30px', background:'#0C0C0E', color:'#F5F2EA', minHeight:'100vh', fontFamily:'monospace', fontSize:'12px' }}>
+        <div style={{ color:'#E8C77E', fontSize:'16px', marginBottom:'14px' }}>Admin debug — server data</div>
+        <div style={{ color:'#6dd49a', marginBottom:'10px' }}>studios: {studios.length} · allOrders: {allOrders.length}</div>
+        <div style={{ color:'#9A968C', marginBottom:'6px' }}>STUDIOS:</div>
+        <pre style={{ whiteSpace:'pre-wrap', marginBottom:'18px' }}>{JSON.stringify(studios, null, 2)}</pre>
+        <div style={{ color:'#9A968C', marginBottom:'6px' }}>ALL ORDERS:</div>
+        <pre style={{ whiteSpace:'pre-wrap' }}>{JSON.stringify(allOrders, null, 2)}</pre>
+      </div>
+    )
+  }
 
   return (
     <ErrorBoundary>
