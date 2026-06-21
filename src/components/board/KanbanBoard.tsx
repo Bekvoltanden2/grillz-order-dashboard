@@ -358,9 +358,10 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
         </Modal>
       )}
 
-      {/* Expose showSettings toggle via window for header button */}
+      {/* Hidden trigger buttons for header */}
       <button id="__settingsToggle" style={{ display:'none' }} onClick={() => setShowSettings(true)} />
-      <button id="__pollTrigger" style={{ display:'none' }} onClick={pollConfirmations} />
+      <button id="__newOrderBtn"    style={{ display:'none' }} onClick={() => setShowNew(true)} />
+      <button id="__pollTrigger"    style={{ display:'none' }} onClick={pollConfirmations} />
     </>
   )
 }
