@@ -22,10 +22,14 @@ export default async function AdminPage() {
     console.error('Admin studios fetch error:', studiosError)
   }
 
-  // Aggregate stats
-  const allOrders = (studios ?? []).flatMap((s: any) =>
-    (s.orders ?? []).map((o: any) => ({ ...o, studioName: s.name, studioId: s.id }))
-  )
+  // Aggregate stats — filter out any null rows Supabase may return
+  const allOrders = (studios ?? [])
+    .filter((s: any) => s != null)
+    .flatMap((s: any) =>
+      (s.orders ?? [])
+        .filter((o: any) => o != null && o.id != null)
+        .map((o: any) => ({ ...o, studioName: s.name, studioId: s.id }))
+    )
 
   return (
     <AdminDashboard

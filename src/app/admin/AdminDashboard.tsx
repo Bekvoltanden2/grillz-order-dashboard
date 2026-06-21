@@ -104,8 +104,8 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
         {/* Studios grid */}
         <div style={{ fontSize:'13px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.03em', textTransform:'uppercase', marginBottom:'12px' }}>Studios</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'14px', marginBottom:'32px' }}>
-          {studios.map((s: any, i: number) => {
-            const orders = s.orders ?? []
+          {studios.filter((s: any) => s != null).map((s: any, i: number) => {
+            const orders = (s.orders ?? []).filter((o: any) => o != null)
             const rev    = orders.reduce((a: number, o: any) => a + (o.price ?? 0), 0)
             const active = orders.filter((o: any) => o.column_index < 7).length
             const counts = Array(8).fill(0)
