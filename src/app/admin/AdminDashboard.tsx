@@ -16,6 +16,20 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
   const [editForm, setEditForm] = useState({ send:'', impressionUrl:'', fittingUrl:'' })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [activeNav, setActiveNav] = useState('Dashboard')
+
+  const NAV_ITEMS: [string, string, string][] = [
+    ['▦', 'Dashboard', 'sec-top'],
+    ['◈', 'All orders', 'sec-orders'],
+    ['⬡', 'Studios', 'sec-studios'],
+    ['↗', 'Revenue', 'sec-revenue'],
+    ['◷', 'Pipeline speed', 'sec-pipeline'],
+  ]
+
+  function goToSection(label: string, sectionId: string) {
+    setActiveNav(label)
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const active   = allOrders.filter(o => o.column_index < 7).length
   const complete = allOrders.filter(o => o.column_index === 7).length
@@ -60,8 +74,9 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
           <div style={{ fontSize:'11px', color:'var(--txt-3)', marginTop:'3px', letterSpacing:'.04em', textTransform:'uppercase' }}>Manager Dashboard</div>
         </div>
         <div style={{ height:'1px', background:'var(--line)', margin:'16px 0' }} />
-        {[['▦','Dashboard'],['◈','All orders'],['⬡','Studios'],['↗','Revenue'],['◷','Pipeline speed']].map(([ic, label]) => (
-          <a key={label} style={{ display:'flex', alignItems:'center', gap:'9px', padding:'9px 10px', borderRadius:'9px', fontSize:'13px', color: label === 'Dashboard' ? 'var(--gold)' : 'var(--txt-2)', cursor:'pointer', marginBottom:'2px', textDecoration:'none', background: label === 'Dashboard' ? 'rgba(212,175,106,.12)' : 'transparent' }}>
+        {NAV_ITEMS.map(([ic, label, sectionId]) => (
+          <a key={label} onClick={() => goToSection(label, sectionId)}
+            style={{ display:'flex', alignItems:'center', gap:'9px', padding:'9px 10px', borderRadius:'9px', fontSize:'13px', color: activeNav === label ? 'var(--gold)' : 'var(--txt-2)', cursor:'pointer', marginBottom:'2px', textDecoration:'none', background: activeNav === label ? 'rgba(212,175,106,.12)' : 'transparent' }}>
             <span style={{ width:'16px', textAlign:'center', fontSize:'14px' }}>{ic}</span>{label}
           </a>
         ))}
@@ -80,7 +95,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
 
       {/* Main */}
       <main style={{ flex:1, padding:'28px 28px 40px', overflowY:'auto' }}>
-        <div style={{ fontFamily:'Georgia,serif', fontSize:'26px', fontWeight:600, marginBottom:'4px' }}>Good morning 👋</div>
+        <div id="sec-top" style={{ fontFamily:'Georgia,serif', fontSize:'26px', fontWeight:600, marginBottom:'4px', scrollMarginTop:'20px' }}>Good morning 👋</div>
         <div style={{ fontSize:'13px', color:'var(--txt-2)', marginBottom:'28px' }}>
           {new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
         </div>
@@ -102,7 +117,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
         </div>
 
         {/* Studios grid */}
-        <div style={{ fontSize:'13px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.03em', textTransform:'uppercase', marginBottom:'12px' }}>Studios</div>
+        <div id="sec-studios" style={{ fontSize:'13px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.03em', textTransform:'uppercase', marginBottom:'12px', scrollMarginTop:'20px' }}>Studios</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'14px', marginBottom:'32px' }}>
           {studios.filter((s: any) => s != null).map((s: any, i: number) => {
             const orders = (s.orders ?? []).filter((o: any) => o != null)
@@ -161,7 +176,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
         {/* Funnel + Revenue */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'32px' }}>
           {/* Funnel */}
-          <div style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'16px', padding:'18px' }}>
+          <div id="sec-pipeline" style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'16px', padding:'18px', scrollMarginTop:'20px' }}>
             <div style={{ fontSize:'12px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.04em', textTransform:'uppercase', marginBottom:'14px' }}>Orders per stage</div>
             <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
               {stageTotals.map((c, i) => (
@@ -177,14 +192,14 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
           </div>
 
           {/* Revenue bars */}
-          <div style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'16px', padding:'18px' }}>
+          <div id="sec-revenue" style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'16px', padding:'18px', scrollMarginTop:'20px' }}>
             <div style={{ fontSize:'12px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.04em', textTransform:'uppercase', marginBottom:'14px' }}>Revenue last 6 months</div>
             <RevenueChart revenue={revenue} />
           </div>
         </div>
 
         {/* Orders table */}
-        <div style={{ fontSize:'13px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.03em', textTransform:'uppercase', marginBottom:'12px' }}>Recent orders</div>
+        <div id="sec-orders" style={{ fontSize:'13px', fontWeight:600, color:'var(--txt-2)', letterSpacing:'.03em', textTransform:'uppercase', marginBottom:'12px', scrollMarginTop:'20px' }}>Recent orders</div>
         <div style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'16px', overflow:'hidden', marginBottom:'32px' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
