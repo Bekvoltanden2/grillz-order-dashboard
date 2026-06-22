@@ -27,7 +27,7 @@ export default async function DashboardPage() {
         <KanbanBoard
           initialOrders={orders ?? []}
           materials={materials ?? []}
-          studio={studio}
+          studio={{ ...studio, contact_email: studio.contact_email ?? user.email }}
         />
       </div>
     </ToastProvider>

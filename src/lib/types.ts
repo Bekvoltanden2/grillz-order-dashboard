@@ -36,6 +36,7 @@ export type Studio = {
   cal_impression_url: string | null
   cal_fitting_url: string | null
   cal_webhook_secret: string | null
+  contact_email?: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   subscription_status: 'trialing' | 'active' | 'past_due' | 'canceled' | null

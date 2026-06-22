@@ -84,6 +84,11 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Studio identity — lets one Make.com scenario serve every studio
+          studioId:      studio.id,
+          studioName:    studio.name,
+          studioReplyTo: studio.contact_email ?? null,
+          // Order + customer
           orderId: o.id,
           orderNumber: o.order_number,
           type,
