@@ -1,12 +1,15 @@
 'use client'
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Order, Material, Studio, COLUMNS, IMPRESSION_COL, FITTING_COL, NOTE_PRESETS } from '@/lib/types'
+import { Order, Material, Studio, StockItem, COLUMNS, IMPRESSION_COL, FITTING_COL, NOTE_PRESETS } from '@/lib/types'
 import { useToast } from '@/components/ui/Toast'
+
+const COMPLETE_COL = 7
 
 interface Props {
   initialOrders: Order[]
   materials: Material[]
+  stockItems: StockItem[]
   studio: Studio
 }
 
@@ -18,13 +21,15 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
 }
 
-export default function KanbanBoard({ initialOrders, materials, studio }: Props) {
+export default function KanbanBoard({ initialOrders, materials, stockItems: initialStock, studio }: Props) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [dragging, setDragging] = useState<string | null>(null)
   const [dropCol, setDropCol] = useState<number | null>(null)
   const [openCard, setOpenCard] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [stock, setStock] = useState<StockItem[]>(initialStock)
+  const [recordFor, setRecordFor] = useState<Order | null>(null)   // order whose materials we're recording
   const supabase = createClient()
   const { toast } = useToast()
 
@@ -63,7 +68,31 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
     } else if (col === FITTING_COL && !o.fitting_link_sent) {
       await updateOrder(o.id, { fitting_link_sent: true })
       sendLink(o, 'fitting')
+    } else if (col === COMPLETE_COL && !o.materials_recorded && stock.length > 0) {
+      // Prompt to record material usage when the grill is completed
+      setRecordFor(o)
     }
+  }
+
+  // Deduct the recorded material usage from storage
+  async function recordMaterials(o: Order, lines: { stockItemId: string; grams: number }[]) {
+    const used = lines.filter(l => l.stockItemId && l.grams > 0)
+    for (const l of used) {
+      const item = stock.find(s => s.id === l.stockItemId)
+      if (!item) continue
+      const newTotal = Math.max(0, item.grams - l.grams)
+      setStock(prev => prev.map(s => s.id === item.id ? { ...s, grams: newTotal } : s))
+      await supabase.from('stock_items').update({ grams: newTotal }).eq('id', item.id)
+      await supabase.from('stock_movements').insert({
+        studio_id: studio.id, stock_item_id: item.id, change_grams: -l.grams, reason: 'usage', order_id: o.id,
+      })
+      if (item.low_threshold > 0 && newTotal <= item.low_threshold) {
+        toast('Low stock ⚠️', `${item.name} is down to ${Math.round(newTotal * 10) / 10} g.`)
+      }
+    }
+    await updateOrder(o.id, { materials_recorded: true })
+    setRecordFor(null)
+    if (used.length) toast('Materials recorded', `Stock updated for ${o.customer_name}'s order.`)
   }
 
   async function sendLink(o: Order, type: 'impression' | 'fitting') {
@@ -267,6 +296,8 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
           <CardDetail
             order={activeCard}
             materials={matList}
+            canRecord={activeCard.column_index === COMPLETE_COL && !activeCard.materials_recorded && stock.length > 0}
+            onRecord={() => { const o = activeCard; setOpenCard(null); setRecordFor(o) }}
             onNext={async () => { await moveOrder(activeCard.id, activeCard.column_index + 1); setOpenCard(null) }}
             onAddNote={n => addNote(activeCard.id, n)}
             onRemoveNote={n => removeNote(activeCard.id, n)}
@@ -330,6 +361,16 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
         </Modal>
       )}
 
+      {/* Record materials used (on completion) */}
+      {recordFor && (
+        <RecordMaterials
+          order={recordFor}
+          stock={stock}
+          onConfirm={lines => recordMaterials(recordFor, lines)}
+          onSkip={async () => { await updateOrder(recordFor.id, { materials_recorded: true }); setRecordFor(null) }}
+        />
+      )}
+
       {/* Hidden trigger buttons for header */}
       <button id="__settingsToggle" style={{ display:'none' }} onClick={() => setShowSettings(true)} />
       <button id="__newOrderBtn"    style={{ display:'none' }} onClick={() => setShowNew(true)} />
@@ -338,11 +379,62 @@ export default function KanbanBoard({ initialOrders, materials, studio }: Props)
   )
 }
 
-// ---- Card detail ----
-function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
-  order: Order; materials: Material[]
-  onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onDelete: () => void; onClose: () => void
+// ---- Record materials used modal ----
+function RecordMaterials({ order: o, stock, onConfirm, onSkip }: {
+  order: Order; stock: StockItem[]
+  onConfirm: (lines: { stockItemId: string; grams: number }[]) => void
+  onSkip: () => void
+}) {
+  // Pre-fill one line, defaulting to a stock item matching the order's material if found
+  const defaultMatch = stock.find(s => s.name.toLowerCase().includes(o.material.toLowerCase()))
+  const [lines, setLines] = useState<{ stockItemId: string; grams: string }[]>([
+    { stockItemId: defaultMatch?.id ?? stock[0]?.id ?? '', grams: '' },
+  ])
 
+  function setLine(i: number, patch: Partial<{ stockItemId: string; grams: string }>) {
+    setLines(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l))
+  }
+
+  return (
+    <Modal onClose={onSkip}>
+      <h3 style={{ fontFamily:'Georgia,serif', fontSize:'19px', fontWeight:600, marginBottom:'4px' }}>Materials used</h3>
+      <p style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'16px' }}>
+        #{o.order_number} · {o.customer_name} — record what came out of storage.
+      </p>
+
+      {lines.map((l, i) => (
+        <div key={i} style={{ display:'flex', gap:'8px', marginBottom:'8px', alignItems:'center' }}>
+          <select value={l.stockItemId} onChange={e => setLine(i, { stockItemId: e.target.value })}
+            style={{ ...inputStyle, flex:1 }}>
+            {stock.map(s => <option key={s.id} value={s.id}>{s.name} ({Math.round(s.grams * 10) / 10}g left)</option>)}
+          </select>
+          <input type="number" value={l.grams} onChange={e => setLine(i, { grams: e.target.value })} placeholder="grams"
+            style={{ ...inputStyle, width:'90px' }} />
+          {lines.length > 1 && (
+            <button onClick={() => setLines(prev => prev.filter((_, idx) => idx !== i))}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'var(--txt-3)', fontSize:'16px' }}>×</button>
+          )}
+        </div>
+      ))}
+
+      <button onClick={() => setLines(prev => [...prev, { stockItemId: stock[0]?.id ?? '', grams: '' }])}
+        style={{ background:'none', border:'none', color:'var(--txt-3)', cursor:'pointer', fontSize:'12.5px', padding:'4px 0', marginBottom:'8px' }}>
+        + add another material
+      </button>
+
+      <div style={{ display:'flex', gap:'9px', marginTop:'10px' }}>
+        <button onClick={onSkip} style={ghostBtn}>Skip</button>
+        <button onClick={() => onConfirm(lines.map(l => ({ stockItemId: l.stockItemId, grams: parseFloat(l.grams) || 0 })))}
+          style={primaryBtn}>Deduct from stock</button>
+      </div>
+    </Modal>
+  )
+}
+
+// ---- Card detail ----
+function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
+  order: Order; materials: Material[]; canRecord: boolean; onRecord: () => void
+  onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onDelete: () => void; onClose: () => void
 }) {
   const [noteInput, setNoteInput] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -398,6 +490,13 @@ function CardDetail({ order: o, materials, onNext, onAddNote, onRemoveNote, onDe
           <button onClick={() => { onAddNote(noteInput); setNoteInput('') }} style={{ background:'var(--col)', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt-2)', fontFamily:'inherit', fontSize:'12px', padding:'8px 13px', cursor:'pointer' }}>Add</button>
         </div>
       </div>
+
+      {canRecord && (
+        <button onClick={onRecord}
+          style={{ width:'100%', marginTop:'16px', background:'rgba(212,175,106,.12)', border:'1px solid rgba(212,175,106,.35)', borderRadius:'10px', color:'var(--gold-b)', fontFamily:'inherit', fontSize:'13px', fontWeight:600, padding:'10px', cursor:'pointer' }}>
+          📦 Record materials used
+        </button>
+      )}
 
       <div style={{ display:'flex', gap:'9px', marginTop:'18px' }}>
         <button onClick={onClose} style={ghostBtn}>Close</button>

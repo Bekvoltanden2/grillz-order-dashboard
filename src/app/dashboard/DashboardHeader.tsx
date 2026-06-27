@@ -23,6 +23,10 @@ export default function DashboardHeader({ studioName, userEmail }: { studioName:
       <div style={{ display:'flex', gap:'9px', alignItems:'center' }}>
         <span style={{ fontSize:'11.5px', color:'var(--txt-2)', background:'var(--col)', border:'1px solid var(--line)', borderRadius:'20px', padding:'5px 12px' }}>{studioName}</span>
         <button
+          onClick={() => router.push('/storage')}
+          style={{ background:'var(--col)', border:'1px solid var(--line-2)', borderRadius:'10px', padding:'9px 13px', cursor:'pointer', color:'var(--txt-2)', fontSize:'13px' }}
+        >📦 Storage</button>
+        <button
           onClick={() => (document.getElementById('__settingsToggle') as HTMLButtonElement)?.click()}
           style={{ background:'var(--col)', border:'1px solid var(--line-2)', borderRadius:'10px', padding:'9px 13px', cursor:'pointer', color:'var(--txt-2)', fontSize:'13px' }}
         >⚙ Settings</button>

@@ -19,6 +19,7 @@ export default async function DashboardPage() {
   const studio = profile.studios as any
   const { data: orders } = await supabase.from('orders').select('*').eq('studio_id', studio.id).order('created_at', { ascending: false })
   const { data: materials } = await supabase.from('materials').select('*').eq('studio_id', studio.id).order('created_at')
+  const { data: stockItems } = await supabase.from('stock_items').select('*').eq('studio_id', studio.id).order('name')
 
   return (
     <ToastProvider>
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
         <KanbanBoard
           initialOrders={orders ?? []}
           materials={materials ?? []}
+          stockItems={stockItems ?? []}
           studio={{ ...studio, contact_email: studio.contact_email ?? user.email }}
         />
       </div>

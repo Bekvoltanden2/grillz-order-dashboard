@@ -22,8 +22,28 @@ export type Order = {
   fitting_link_sent: boolean
   fitting_date: string | null
   notes: string[]
+  materials_recorded: boolean
   created_at: string
   updated_at: string
+}
+
+export type StockItem = {
+  id: string
+  studio_id: string
+  name: string
+  grams: number
+  low_threshold: number
+  created_at: string
+}
+
+export type StockMovement = {
+  id: string
+  studio_id: string
+  stock_item_id: string
+  change_grams: number
+  reason: string | null
+  order_id: string | null
+  created_at: string
 }
 
 export type Studio = {
