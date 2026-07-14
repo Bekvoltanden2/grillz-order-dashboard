@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 
 const CAL_WEBHOOK_URL = 'https://grillz-order-dashboard.vercel.app/api/cal/webhook'
+// Set NEXT_PUBLIC_CALCOM_SIGNUP_URL to your Cal.com affiliate link (gives makers 20% off, you earn 20%)
+const CAL_SIGNUP_URL = process.env.NEXT_PUBLIC_CALCOM_SIGNUP_URL || 'https://cal.com/signup'
+const CAL_HAS_AFFILIATE = !!process.env.NEXT_PUBLIC_CALCOM_SIGNUP_URL
 
 export default function OnboardingForm({ userId, userEmail, defaultName }: { userId: string; userEmail: string; defaultName: string }) {
   const router = useRouter()
@@ -98,7 +101,12 @@ export default function OnboardingForm({ userId, userEmail, defaultName }: { use
             <div style={card}>
               {/* Instructions */}
               <ol style={{ margin:'0 0 18px', padding:'0 0 0 18px', color:'var(--txt-2)', fontSize:'13px', lineHeight:1.9 }}>
-                <li>Create a free account at <A href="https://cal.com/signup">cal.com/signup</A> — <b style={{ color:'var(--txt)' }}>use “Continue with Google”</b> so your calendar connects automatically.</li>
+                <li>
+                  Create a free account at <A href={CAL_SIGNUP_URL}>Cal.com</A>
+                  {CAL_HAS_AFFILIATE && <span style={{ color:'var(--gold)' }}> (this link gives you 20% off)</span>} —
+                  {' '}<b style={{ color:'var(--txt)' }}>use “Continue with Google”</b> so your calendar connects automatically.
+                  {CAL_HAS_AFFILIATE && <span style={{ display:'block', fontSize:'10.5px', color:'var(--txt-3)', marginTop:'2px' }}>Affiliate link.</span>}
+                </li>
                 <li>Create two <b style={{ color:'var(--txt)' }}>Event Types</b>: one called <b style={{ color:'var(--txt)' }}>Dental impression</b>, one called <b style={{ color:'var(--txt)' }}>Fitting</b>.</li>
                 <li>Go to <b style={{ color:'var(--txt)' }}>Settings → Developer → Webhooks → New</b>, paste this Subscriber URL and tick <b style={{ color:'var(--txt)' }}>Booking Created</b>:</li>
               </ol>
