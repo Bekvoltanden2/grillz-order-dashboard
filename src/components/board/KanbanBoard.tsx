@@ -228,6 +228,10 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
                     if (o.fitting_date) statusTag = <span title="Appointment confirmed" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ confirmed</span>
                     else if (o.fitting_link_sent) statusTag = <span title="Booking link sent" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>link sent</span>
                   }
+                  if (ci === COMPLETE_COL && stock.length > 0) {
+                    if (o.materials_recorded) statusTag = <span title="Materials deducted from stock" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ stock deducted</span>
+                    else statusTag = <span title="Materials not deducted yet — open the card to record them" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(212,175,106,.12)', color:'var(--gold-b)' }}>stock not deducted</span>
+                  }
                   return (
                     <div key={o.id} draggable
                       onDragStart={e => onDragStart(e, o.id)}
@@ -352,7 +356,7 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
           order={recordFor}
           stock={stock}
           onConfirm={lines => recordMaterials(recordFor, lines)}
-          onSkip={async () => { await updateOrder(recordFor.id, { materials_recorded: true }); setRecordFor(null) }}
+          onSkip={() => setRecordFor(null)}
         />
       )}
 
@@ -408,7 +412,7 @@ function RecordMaterials({ order: o, stock, onConfirm, onSkip }: {
       </button>
 
       <div style={{ display:'flex', gap:'9px', marginTop:'10px' }}>
-        <button onClick={onSkip} style={ghostBtn}>Skip</button>
+        <button onClick={onSkip} style={ghostBtn}>Skip for now</button>
         <button onClick={() => onConfirm(lines.map(l => ({ stockItemId: l.stockItemId, grams: parseFloat(l.grams) || 0 })))}
           style={primaryBtn}>Deduct from stock</button>
       </div>
@@ -435,6 +439,7 @@ function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNot
         ['Price', `€${o.price}`],
         ...(o.customer_phone ? [['Phone', o.customer_phone]] : []),
         ...(o.customer_email ? [['Email', o.customer_email]] : []),
+        ...(!col.next ? [['Stock', o.materials_recorded ? 'deducted ✓' : 'not deducted yet']] : []),
       ] as [string, string][]).map(([k, v]) => (
         <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', padding:'8px 0', borderBottom:'1px solid var(--line)' }}>
           <span style={{ color:'var(--txt-2)' }}>{k}</span>
