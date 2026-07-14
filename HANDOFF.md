@@ -107,24 +107,23 @@ Key column constants: `IMPRESSION_COL = 1`, `FITTING_COL = 6`, `COMPLETE_COL = 7
 
 ## 7. Appointment automation (the core flow)
 
-### Outbound — sending the booking link
-When an order enters `IMPRESSION_COL` or `FITTING_COL` (and the link wasn't already sent), `sendLink()` builds a Cal.com URL with metadata and POSTs a JSON payload to a **Make.com webhook**:
+### Outbound — sending the booking link (server-side via Resend)
+When an order enters `IMPRESSION_COL` or `FITTING_COL` (and the link wasn't already sent), the client `sendLink()` in `KanbanBoard.tsx` does a single authenticated `POST /api/orders/send-link` with `{ orderId, type }`. **All the work happens server-side** — no webhook URL is exposed to the browser.
 
-- Webhook URL resolution: `studio.webhook_send_url || process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL`. In practice a **single global Make.com scenario** (`NEXT_PUBLIC_MAKE_WEBHOOK_URL`) serves every studio; the per-studio field is an optional override.
-- `calLink = <studio's cal event url>?metadata[orderId]=<id>&metadata[type]=<impression|fitting>`
-- **Payload:**
-  ```json
-  {
-    "studioId", "studioName", "studioReplyTo",
-    "orderId", "orderNumber", "type",
-    "name", "phone", "email",
-    "grillz", "material", "price",
-    "calLink"
-  }
-  ```
-- `studioName` + `studioReplyTo` let ONE Make.com scenario brand every email per studio (From-name + Reply-To). `studioReplyTo` = `studio.contact_email` (falls back to owner's login email).
+`src/app/api/orders/send-link/route.ts`:
+- Auth via the cookie-based server Supabase client; 401 if no session.
+- Fetches the order (RLS scopes owners to their own rows → 404 if not found) and its studio.
+- Guards: 409 if the `*_link_sent` flag is already true; 422 if the studio's `cal_impression_url`/`cal_fitting_url` is missing or the order has no `customer_email`.
+- Builds `calLink = <studio's cal event url>?metadata[orderId]=<id>&metadata[type]=<impression|fitting>`. **This format must not change — `/api/cal/webhook` depends on it.**
+- Sends the email through the **Resend REST API** (`POST https://api.resend.com/emails`) with:
+  - `from`: `"<studio.name>" <RESEND_FROM_ADDRESS>` (default `bookings@bekvoltanden.nl`) — per-studio From-name.
+  - `reply_to`: `studio.contact_email` (falls back to the owner's login email).
+  - `to`: `order.customer_email`; branded dark/gold inline-HTML body with the booking button.
+- On success: sets `impression_link_sent`/`fitting_link_sent = true` and returns `{ ok, calLink }`.
 
-Make.com then sends the customer the booking link (currently via **Gmail**; **migrating to Resend** — see §11).
+The client keeps optimistic UI (shows the "link sent" tag immediately, reverts on failure), handles 409 silently and 422 with a visible toast.
+
+> **Deprecated:** the old client-side Make.com webhook POST (`NEXT_PUBLIC_MAKE_WEBHOOK_URL` / `studios.webhook_send_url`) is no longer used for booking links. The env var and column remain for reference but can be removed later.
 
 ### Inbound — confirming the booking
 1. Customer books on the studio's Cal.com page (metadata rides along in the URL).
@@ -161,10 +160,13 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY          # server-only, used by /api/cal/webhook
 NEXT_PUBLIC_APP_URL
-NEXT_PUBLIC_MAKE_WEBHOOK_URL       # the ONE shared Make.com scenario for all studios
+RESEND_API_KEY                     # server-only — booking-link emails via /api/orders/send-link
+RESEND_FROM_ADDRESS                # optional, default bookings@bekvoltanden.nl
 NEXT_PUBLIC_CALCOM_SIGNUP_URL      # optional Cal.com affiliate link (shows "20% off" in onboarding)
+NEXT_PUBLIC_MAKE_WEBHOOK_URL       # DEPRECATED — no longer used for booking links
 # Stripe keys exist but Stripe is inactive
 ```
+⚠️ `RESEND_API_KEY` must be set in Vercel → Production and requires a redeploy to take effect.
 Set the same values in Vercel (Production) and redeploy after changes — `NEXT_PUBLIC_*` vars are baked at build time.
 
 ---
@@ -182,11 +184,13 @@ Set the same values in Vercel (Production) and redeploy after changes — `NEXT_
 - Google OAuth provider is enabled here (Authentication → Providers → Google), with credentials from Google Cloud Console. Auth callback URL: `https://fzuyizcgnrxqktlmilvx.supabase.co/auth/v1/callback`
 - Auth URL config: Site URL = the Vercel app URL; redirect URLs include `https://grillz-order-dashboard.vercel.app/**` and `http://localhost:3000/**`
 
-**Make.com** (sends booking links)
-- One shared scenario serves all studios. Its webhook URL is the value of `NEXT_PUBLIC_MAKE_WEBHOOK_URL`:
-  `https://hook.eu2.make.com/9qj8mb4x1pv7wb5p749obh83drfenpcp`
-- Scenario shape: Webhook → Router by `type` (impression/fitting) → email module. Email should use From-name `{{studioName}}` + Reply-To `{{studioReplyTo}}` (see §11 — moving from Gmail to Resend to actually set the From-name).
-- If fields show empty in Make: re-run "Redetermine data structure" so it learns `studioName`/`studioReplyTo`.
+**Resend** (sends booking-link emails) — CURRENT
+- Booking emails are sent server-side by `/api/orders/send-link` via the Resend REST API.
+- Requires `RESEND_API_KEY` (Vercel + `.env.local`). Sender = `RESEND_FROM_ADDRESS` (default `bookings@bekvoltanden.nl`).
+- Domain `bekvoltanden.nl` must be verified in Resend (SPF/DKIM DNS records) so the From address is authorized.
+
+**Make.com** — DEPRECATED for booking links
+- Previously one shared scenario (`NEXT_PUBLIC_MAKE_WEBHOOK_URL`) sent the emails. No longer in the send path (Gmail there could not set a custom From-name, which is why we moved to Resend). Env var/column kept only for reference.
 
 **Cal.com** (customer booking pages + booking webhook)
 - Each **studio has its own Cal.com account** (they connect their own calendar; we never hold their login). During onboarding they create two event types (`dental-impression`, `fitting`) and paste the two public event URLs into the app (`cal_impression_url`, `cal_fitting_url`).
@@ -210,12 +214,12 @@ Set the same values in Vercel (Production) and redeploy after changes — `NEXT_
 - Google + email auth, self-serve onboarding, multi-tenant RLS
 - Order board with drag/drop, notes, delete completed orders
 - Cal.com booking automation (impression + fitting) end-to-end
+- **Booking-link emails sent server-side via Resend** (`/api/orders/send-link`), branded per studio (From-name = studio, Reply-To = studio email)
 - Storage/inventory with completion deduction + low-stock alerts
 - Admin dashboard
-- One shared Make.com scenario driving all studios' booking links
 
 **In progress / next:**
-- **Email sender branding:** currently Gmail in Make.com, which **cannot set a custom From-name** (Google forces the sender = connected account). **Migrating to Resend** so emails show "<Studio Name>" as sender + studio email as Reply-To. Domain `bekvoltanden.nl` available to verify.
+- **Resend go-live:** set `RESEND_API_KEY` in Vercel and verify `bekvoltanden.nl`'s DNS in Resend so sends are authorized. Until then, `/api/orders/send-link` returns 500 ("email not configured").
 - **WhatsApp:** planned via **Twilio** (sandbox works now; production needs a verified sender + templates). Guides in `TWILIO-WHATSAPP-SETUP.md`. Meta direct API was rejected as too much verification hassle.
 - **Stripe billing:** scaffolded (lazy-initialized checkout + webhook routes) but not activated.
 - **Studio-facing Cal.com editing:** if a maker skips Cal.com in onboarding, there's no studio-side UI yet to add the links later (only admin panel).

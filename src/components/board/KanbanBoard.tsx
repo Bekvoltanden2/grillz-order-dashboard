@@ -37,12 +37,6 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   const [form, setForm] = useState({ naam:'', phone:'', email:'', soort:'', mat: materials[0]?.name ?? '', prijs:'' })
 
   // ---- settings state ----
-  const [wh, setWh] = useState({ send: studio.webhook_send_url ?? '', poll: studio.webhook_poll_url ?? '' })
-  const [cal, setCal] = useState({
-    impressionUrl: studio.cal_impression_url ?? '',
-    fittingUrl:    studio.cal_fitting_url    ?? '',
-    webhookSecret: studio.cal_webhook_secret ?? '',
-  })
   const [newMat, setNewMat] = useState({ name:'', color:'#D4AF6A' })
   const [matList, setMatList] = useState<Material[]>(materials)
 
@@ -62,11 +56,11 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   }
 
   async function onEnter(o: Order, col: number) {
+    // Note: the "link sent" flag is now owned by the server route (it sets it after a
+    // successful email send), so we don't pre-set it here — that would trigger a 409.
     if (col === IMPRESSION_COL && !o.impression_link_sent) {
-      await updateOrder(o.id, { impression_link_sent: true })
       sendLink(o, 'impression')
     } else if (col === FITTING_COL && !o.fitting_link_sent) {
-      await updateOrder(o.id, { fitting_link_sent: true })
       sendLink(o, 'fitting')
     } else if (col === COMPLETE_COL && !o.materials_recorded && stock.length > 0) {
       // Prompt to record material usage when the grill is completed
@@ -95,47 +89,35 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
     if (used.length) toast('Materials recorded', `Stock updated for ${o.customer_name}'s order.`)
   }
 
+  // Booking link is now sent server-side via /api/orders/send-link (Resend).
+  // (The old client-side Make.com webhook POST is deprecated — see HANDOFF.md §7/§11.)
   async function sendLink(o: Order, type: 'impression' | 'fitting') {
-    const label      = type === 'impression' ? 'dental impression' : 'fitting'
-    const baseCalUrl = type === 'impression' ? cal.impressionUrl : cal.fittingUrl
+    const label = type === 'impression' ? 'dental impression' : 'fitting'
+    const setFlag = (v: boolean) => setOrders(prev => prev.map(x =>
+      x.id === o.id ? { ...x, ...(type === 'impression' ? { impression_link_sent: v } : { fitting_link_sent: v }) } : x))
 
-    // Build the Cal.com link with metadata so the webhook can match it back to this order
-    const calLink = baseCalUrl
-      ? `${baseCalUrl}?metadata[orderId]=${o.id}&metadata[type]=${type}`
-      : null
-
-    // One shared Make.com scenario serves every studio (global default),
-    // but a studio can still override with its own webhook in admin config.
-    const webhookUrl = studio.webhook_send_url || process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL
-    if (!webhookUrl) {
-      toast('Link sent (demo)', `No Make.com webhook set — Cal.com link for ${o.customer_name}'s ${label} would be sent here.`)
-      return
-    }
+    setFlag(true) // optimistic — show the "link sent" tag immediately
     try {
-      await fetch(webhookUrl, {
+      const res = await fetch('/api/orders/send-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // Studio identity — lets one Make.com scenario serve every studio
-          studioId:      studio.id,
-          studioName:    studio.name,
-          studioReplyTo: studio.contact_email ?? null,
-          // Order + customer
-          orderId: o.id,
-          orderNumber: o.order_number,
-          type,
-          name: o.customer_name,
-          phone: o.customer_phone,
-          email: o.customer_email,
-          grillz: o.grillz_type,
-          material: o.material,
-          price: o.price,
-          calLink,   // ← ready-to-send Cal.com URL with metadata already attached
-        })
+        body: JSON.stringify({ orderId: o.id, type }),
       })
-      toast('Link sent', `Cal.com booking link for ${o.customer_name}'s ${label} was sent automatically.`)
+      if (res.status === 409) return // already sent — keep flag, no toast
+      if (!res.ok) {
+        setFlag(false) // revert the optimistic tag
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 422) {
+          toast('Can’t send booking link', data.error || `Missing Cal.com ${label} link or customer email.`)
+        } else {
+          toast('Send failed', data.error || 'Could not send the booking link. Please try again.')
+        }
+        return
+      }
+      toast('Booking link sent', `${o.customer_name} was emailed their ${label} booking link.`)
     } catch {
-      toast('Send failed', 'Could not reach the Make.com webhook. Check the URL in Settings.')
+      setFlag(false)
+      toast('Send failed', 'Could not reach the server. Please try again.')
     }
   }
 
