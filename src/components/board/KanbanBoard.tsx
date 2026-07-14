@@ -104,12 +104,15 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
       ? `${baseCalUrl}?metadata[orderId]=${o.id}&metadata[type]=${type}`
       : null
 
-    if (!studio.webhook_send_url) {
+    // One shared Make.com scenario serves every studio (global default),
+    // but a studio can still override with its own webhook in admin config.
+    const webhookUrl = studio.webhook_send_url || process.env.NEXT_PUBLIC_MAKE_WEBHOOK_URL
+    if (!webhookUrl) {
       toast('Link sent (demo)', `No Make.com webhook set — Cal.com link for ${o.customer_name}'s ${label} would be sent here.`)
       return
     }
     try {
-      await fetch(studio.webhook_send_url, {
+      await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
