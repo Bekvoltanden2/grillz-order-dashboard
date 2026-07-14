@@ -200,20 +200,20 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   return (
     <>
       {/* Board */}
-      <div style={{ display:'flex', gap:'12px', overflowX:'auto', padding:'4px 20px 24px', flex:1, alignItems:'flex-start', scrollbarWidth:'thin' }}>
+      <div style={{ display:'flex', gap:'10px', overflowX:'auto', padding:'4px 14px 20px', flex:1, alignItems:'flex-start', scrollbarWidth:'thin' }}>
         {COLUMNS.map((col, ci) => {
           const items = orders.filter(o => o.column_index === ci)
           return (
             <div key={ci}
-              style={{ flex:'0 0 230px', width:'230px', background:'var(--col)', border:`1px solid ${dropCol === ci ? 'var(--gold)' : 'var(--line)'}`, borderRadius:'14px', padding:'11px', maxHeight:'100%', display:'flex', flexDirection:'column', outline: dropCol === ci ? '1.5px dashed var(--gold)' : 'none', outlineOffset:'-3px' }}
+              style={{ flex:'1 1 0', minWidth:'140px', background:'var(--col)', border:`1px solid ${dropCol === ci ? 'var(--gold)' : 'var(--line)'}`, borderRadius:'14px', padding:'8px', maxHeight:'100%', display:'flex', flexDirection:'column', outline: dropCol === ci ? '1.5px dashed var(--gold)' : 'none', outlineOffset:'-3px' }}
               onDragOver={e => { e.preventDefault(); setDropCol(ci) }}
               onDragLeave={() => setDropCol(null)}
               onDrop={e => { e.preventDefault(); setDropCol(null); moveOrder(e.dataTransfer.getData('id'), ci) }}
             >
               {/* Column header */}
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', padding:'2px 4px 11px' }}>
-                <span style={{ fontSize:'12.5px', fontWeight:600, letterSpacing:'.01em' }}>{col.label}</span>
-                <span style={{ fontSize:'11px', color:'var(--txt-3)', background:'var(--card)', borderRadius:'20px', padding:'1px 8px', minWidth:'22px', textAlign:'center' }}>{items.length}</span>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'6px', padding:'2px 3px 9px' }}>
+                <span title={col.label} style={{ fontSize:'11.5px', fontWeight:600, letterSpacing:'.01em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{col.short}</span>
+                <span style={{ fontSize:'10.5px', color:'var(--txt-3)', background:'var(--card)', borderRadius:'20px', padding:'1px 7px', minWidth:'20px', textAlign:'center', flexShrink:0 }}>{items.length}</span>
               </div>
 
               {/* Cards */}
@@ -221,33 +221,33 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
                 {items.map(o => {
                   let statusTag = null
                   if (ci === IMPRESSION_COL) {
-                    if (o.impression_date) statusTag = <span style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'8px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>appointment confirmed</span>
-                    else if (o.impression_link_sent) statusTag = <span style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'8px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>calendly link sent</span>
+                    if (o.impression_date) statusTag = <span title="Appointment confirmed" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ confirmed</span>
+                    else if (o.impression_link_sent) statusTag = <span title="Booking link sent" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>link sent</span>
                   }
                   if (ci === FITTING_COL) {
-                    if (o.fitting_date) statusTag = <span style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'8px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>appointment confirmed</span>
-                    else if (o.fitting_link_sent) statusTag = <span style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'8px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>fitting link sent</span>
+                    if (o.fitting_date) statusTag = <span title="Appointment confirmed" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ confirmed</span>
+                    else if (o.fitting_link_sent) statusTag = <span title="Booking link sent" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>link sent</span>
                   }
                   return (
                     <div key={o.id} draggable
                       onDragStart={e => onDragStart(e, o.id)}
                       onDragEnd={() => setDragging(null)}
                       onClick={() => setOpenCard(o.id)}
-                      style={{ background: dragging === o.id ? 'transparent' : 'var(--card)', border:'1px solid var(--line)', borderRadius:'11px', padding:'11px', cursor:'grab', opacity: dragging === o.id ? .4 : 1, transition:'border-color .15s,background .15s' }}
+                      style={{ background: dragging === o.id ? 'transparent' : 'var(--card)', border:'1px solid var(--line)', borderRadius:'10px', padding:'8px 9px', cursor:'grab', opacity: dragging === o.id ? .4 : 1, transition:'border-color .15s,background .15s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--card-h)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--line-2)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = dragging === o.id ? 'transparent' : 'var(--card)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--line)' }}
                     >
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'6px', marginBottom:'5px' }}>
-                        <span style={{ fontSize:'13.5px', fontWeight:600 }}>{o.customer_name}</span>
-                        <span style={{ fontSize:'10.5px', color:'var(--txt-3)' }}>#{o.order_number}</span>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'6px', marginBottom:'3px' }}>
+                        <span style={{ fontSize:'12.5px', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{o.customer_name}</span>
+                        <span style={{ fontSize:'10px', color:'var(--txt-3)', flexShrink:0 }}>#{o.order_number}</span>
                       </div>
-                      <div style={{ fontSize:'12px', color:'var(--txt-2)', marginBottom:'9px' }}>{o.grillz_type}</div>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'11px', color:'var(--txt-2)' }}>
-                          <span style={{ width:'9px', height:'9px', borderRadius:'50%', background: matColor(o.material, matList), flexShrink:0 }} />
+                      <div style={{ fontSize:'11.5px', color:'var(--txt-2)', marginBottom:'7px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{o.grillz_type}</div>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'6px' }}>
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10.5px', color:'var(--txt-2)', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          <span style={{ width:'8px', height:'8px', borderRadius:'50%', background: matColor(o.material, matList), flexShrink:0 }} />
                           {o.material}
                         </span>
-                        <span style={{ fontSize:'12px', fontWeight:600, color:'var(--gold)' }}>€{o.price}</span>
+                        <span style={{ fontSize:'11.5px', fontWeight:600, color:'var(--gold)', flexShrink:0 }}>€{o.price}</span>
                       </div>
                       {statusTag}
                       {o.notes.length > 0 && (

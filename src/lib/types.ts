@@ -73,14 +73,14 @@ export type Profile = {
 }
 
 export const COLUMNS = [
-  { label: 'New order',                    next: 'Approve' },
-  { label: 'Dental impression appt.',      next: 'Appointment done' },
-  { label: 'Completed dental impressions', next: 'Start wax-up' },
-  { label: 'Wax up',                       next: 'Wax-up done' },
-  { label: 'Ready to be casted',           next: 'Cast' },
-  { label: 'Casted',                       next: 'Ready for fitting' },
-  { label: 'Ready for fitting',            next: 'Fitting done' },
-  { label: 'Complete order',               next: null },
+  { label: 'New order',                    short: 'New order',        next: 'Approve' },
+  { label: 'Dental impression appt.',      short: 'Impression appt.', next: 'Appointment done' },
+  { label: 'Completed dental impressions', short: 'Impressions done', next: 'Start wax-up' },
+  { label: 'Wax up',                       short: 'Wax up',           next: 'Wax-up done' },
+  { label: 'Ready to be casted',           short: 'To cast',          next: 'Cast' },
+  { label: 'Casted',                       short: 'Casted',           next: 'Ready for fitting' },
+  { label: 'Ready for fitting',            short: 'Fitting',          next: 'Fitting done' },
+  { label: 'Complete order',               short: 'Complete',         next: null },
 ] as const
 
 export const IMPRESSION_COL = 1
