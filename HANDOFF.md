@@ -169,6 +169,41 @@ Set the same values in Vercel (Production) and redeploy after changes — `NEXT_
 
 ---
 
+## 10b. Accounts & services
+
+> ⚠️ **No secret keys are stored in this (public) repo.** Service-role key, DB password, and API keys live only in `.env.local` (git-ignored) and in Vercel → Settings → Environment Variables. Never commit them here.
+
+**Supabase** (database + auth)
+- Project ref: `fzuyizcgnrxqktlmilvx`
+- Project URL: `https://fzuyizcgnrxqktlmilvx.supabase.co`
+- Dashboard: `https://supabase.com/dashboard/project/fzuyizcgnrxqktlmilvx`
+- Keys: anon key = `NEXT_PUBLIC_SUPABASE_ANON_KEY`; service-role key = `SUPABASE_SERVICE_ROLE_KEY` (SECRET — Vercel env / `.env.local` only)
+- SQL migrations to run on a fresh DB, in order: `supabase/schema.sql` → `supabase/add-cal.sql` → `supabase/add-storage.sql`, plus `alter table studios add column if not exists contact_email text;`
+- Google OAuth provider is enabled here (Authentication → Providers → Google), with credentials from Google Cloud Console. Auth callback URL: `https://fzuyizcgnrxqktlmilvx.supabase.co/auth/v1/callback`
+- Auth URL config: Site URL = the Vercel app URL; redirect URLs include `https://grillz-order-dashboard.vercel.app/**` and `http://localhost:3000/**`
+
+**Make.com** (sends booking links)
+- One shared scenario serves all studios. Its webhook URL is the value of `NEXT_PUBLIC_MAKE_WEBHOOK_URL`:
+  `https://hook.eu2.make.com/9qj8mb4x1pv7wb5p749obh83drfenpcp`
+- Scenario shape: Webhook → Router by `type` (impression/fitting) → email module. Email should use From-name `{{studioName}}` + Reply-To `{{studioReplyTo}}` (see §11 — moving from Gmail to Resend to actually set the From-name).
+- If fields show empty in Make: re-run "Redetermine data structure" so it learns `studioName`/`studioReplyTo`.
+
+**Cal.com** (customer booking pages + booking webhook)
+- Each **studio has its own Cal.com account** (they connect their own calendar; we never hold their login). During onboarding they create two event types (`dental-impression`, `fitting`) and paste the two public event URLs into the app (`cal_impression_url`, `cal_fitting_url`).
+- Every studio adds ONE webhook in Cal.com pointing to our app, trigger = **Booking Created**:
+  `https://grillz-order-dashboard.vercel.app/api/cal/webhook`
+- Optional affiliate link (20% off for the studio, 20% recurring commission) goes in `NEXT_PUBLIC_CALCOM_SIGNUP_URL`. Program: `https://cal.com/affiliate-program`.
+
+**Vercel** (hosting)
+- Auto-deploys `main` from GitHub `Bekvoltanden2/grillz-order-dashboard`.
+- All env vars from §10 must be set in Production; redeploy after changing any.
+
+**Roles / logins**
+- Admin account: `admin@grillzstudio.com` (password set in Supabase Auth; reset via Supabase → Authentication → Users).
+- Studio owners self-register via "Continue with Google" → onboarding.
+
+---
+
 ## 11. Current state & what's pending
 
 **Working & live:**
