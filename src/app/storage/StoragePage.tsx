@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { StockItem, StockMovement } from '@/lib/types'
@@ -35,6 +35,16 @@ export default function StoragePage({ studioId, studioName, initialItems, initia
 
   const [editItem, setEditItem] = useState<StockItem | null>(null)
   const [editThreshold, setEditThreshold] = useState('')
+
+  // Arriving from the notification bell (?bookIn=<itemId>) opens the book-in popup directly
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('bookIn')
+      if (!id) return
+      const item = initialItems.find(i => i.id === id)
+      if (item) { setBookInItem(item); setBookInGrams('') }
+    } catch {}
+  }, [initialItems])
 
   // ---- create a new material type ----
   async function addItem() {

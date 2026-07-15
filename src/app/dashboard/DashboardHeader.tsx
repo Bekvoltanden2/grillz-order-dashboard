@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { StockItem } from '@/lib/types'
@@ -11,6 +11,7 @@ export default function DashboardHeader({ studioName, userEmail, stockItems }: {
   const supabase = createClient()
   const [stock, setStock] = useState<StockItem[]>(stockItems)
   const [showBell, setShowBell] = useState(false)
+  const bellRef = useRef<HTMLDivElement>(null)
 
   // Live updates: the board dispatches 'gs-stock' after deducting materials
   useEffect(() => {
@@ -19,7 +20,22 @@ export default function DashboardHeader({ studioName, userEmail, stockItems }: {
     return () => window.removeEventListener('gs-stock', h)
   }, [])
 
+  // Close the dropdown when clicking anywhere outside it
+  useEffect(() => {
+    if (!showBell) return
+    const onDown = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setShowBell(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [showBell])
+
   const low = stock.filter(s => s.low_threshold > 0 && s.grams <= s.low_threshold)
+
+  function goBookIn(itemId: string) {
+    setShowBell(false)
+    router.push(`/storage?bookIn=${itemId}`)
+  }
 
   async function logout() {
     await supabase.auth.signOut()
@@ -40,7 +56,7 @@ export default function DashboardHeader({ studioName, userEmail, stockItems }: {
         <button onClick={() => router.push('/storage')} style={btn}>📦 Storage</button>
 
         {/* Notification bell */}
-        <div style={{ position:'relative' }}>
+        <div ref={bellRef} style={{ position:'relative' }}>
           <button onClick={() => setShowBell(v => !v)} aria-label="Notifications" style={{ ...btn, position:'relative' }}>
             🔔
             {low.length > 0 && (
@@ -54,19 +70,23 @@ export default function DashboardHeader({ studioName, userEmail, stockItems }: {
                 <div style={{ fontSize:'12.5px', color:'var(--txt-2)', padding:'6px 2px' }}>All good — no alerts ✅</div>
               ) : (
                 low.map(s => (
-                  <div key={s.id} style={{ display:'flex', gap:'8px', alignItems:'flex-start', padding:'8px 2px', borderBottom:'1px solid var(--line)', fontSize:'12.5px' }}>
+                  <div key={s.id} onClick={() => goBookIn(s.id)} title={`Book in ${s.name}`}
+                    style={{ display:'flex', gap:'8px', alignItems:'flex-start', padding:'8px 4px', borderBottom:'1px solid var(--line)', fontSize:'12.5px', cursor:'pointer', borderRadius:'7px' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--card)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  >
                     <span style={{ color:'var(--red)', flexShrink:0 }}>⚠</span>
                     <div>
                       <div style={{ fontWeight:600 }}>{s.name} is running low</div>
                       <div style={{ color:'var(--txt-2)', fontSize:'11.5px', marginTop:'2px' }}>
-                        {Math.round(s.grams * 10) / 10} g left · warns below {s.low_threshold} g
+                        {Math.round(s.grams * 10) / 10} g left · warns below {s.low_threshold} g · click to book in
                       </div>
                     </div>
                   </div>
                 ))
               )}
               {low.length > 0 && (
-                <button onClick={() => { setShowBell(false); router.push('/storage') }}
+                <button onClick={() => goBookIn(low[0].id)}
                   style={{ width:'100%', marginTop:'10px', background:'var(--tint-bg)', border:'1px solid var(--tint-border)', borderRadius:'9px', color:'var(--gold-b)', fontFamily:'inherit', fontSize:'12px', fontWeight:600, padding:'8px', cursor:'pointer' }}>
                   Book in stock →
                 </button>
