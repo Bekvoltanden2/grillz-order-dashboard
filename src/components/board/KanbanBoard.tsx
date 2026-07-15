@@ -427,7 +427,11 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
             <button onClick={() => { navigator.clipboard?.writeText(CAL_WEBHOOK_URL); toast('Copied', 'Webhook URL copied.') }}
               style={{ marginLeft:'8px', background:'var(--card)', border:'1px solid var(--line-2)', borderRadius:'6px', color:'var(--txt-2)', fontSize:'10px', padding:'2px 8px', cursor:'pointer', fontFamily:'inherit' }}>Copy</button>
           </div>
-          <button onClick={saveCalLinks} style={{ ...ghostBtn, width:'100%', marginBottom:'20px', flex:'unset' }}>Save booking links</button>
+          <button onClick={saveCalLinks} style={{ ...ghostBtn, width:'100%', marginBottom:'8px', flex:'unset' }}>Save booking links</button>
+          <a href="/guide" target="_blank" rel="noreferrer"
+            style={{ display:'block', textAlign:'center', fontSize:'12px', color:'var(--gold)', textDecoration:'underline', marginBottom:'20px' }}>
+            📖 New to this? Open the step-by-step setup guide
+          </a>
 
           <SectionTitle>Materials</SectionTitle>
           <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginBottom:'10px' }}>
