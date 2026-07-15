@@ -5,6 +5,7 @@ import { Order, Material, Studio, StockItem, COLUMNS, IMPRESSION_COL, FITTING_CO
 import { useToast } from '@/components/ui/Toast'
 
 const COMPLETE_COL = 7
+const CAL_WEBHOOK_URL = 'https://grillz-order-dashboard.vercel.app/api/cal/webhook'
 
 // Minimal board view: the four production stages (2-5) collapse into "Working on it".
 // Orders keep their real column_index — this is purely a display grouping.
@@ -72,6 +73,7 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
 
   // ---- settings state ----
   const [newMat, setNewMat] = useState({ name:'', color:'#D4AF6A' })
+  const [calCfg, setCalCfg] = useState({ impression: studio.cal_impression_url ?? '', fitting: studio.cal_fitting_url ?? '' })
   const [matList, setMatList] = useState<Material[]>(materials)
 
   const activeCard = orders.find(o => o.id === openCard)
@@ -227,6 +229,15 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
     if (matList.length <= 1) { toast('Cannot remove', 'You need at least one material.'); return }
     await supabase.from('materials').delete().eq('id', id)
     setMatList(prev => prev.filter(m => m.id !== id))
+  }
+
+  async function saveCalLinks() {
+    const { error } = await supabase.from('studios').update({
+      cal_impression_url: calCfg.impression.trim() || null,
+      cal_fitting_url:    calCfg.fitting.trim() || null,
+    }).eq('id', studio.id)
+    if (error) { toast('Error', error.message); return }
+    toast('Calendar connected 📅', 'Your Cal.com booking links are saved.')
   }
 
   // ---- drag & drop ----
@@ -402,6 +413,21 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
             <ToggleBtn active={theme === 'dark'} onClick={() => changeTheme('dark')} title="Dark" sub="Black & gold" />
             <ToggleBtn active={theme === 'light'} onClick={() => changeTheme('light')} title="Light" sub="Grey & blue" />
           </div>
+
+          <SectionTitle>Booking calendar (Cal.com)</SectionTitle>
+          <Field label="DENTAL IMPRESSION — booking link">
+            <Input placeholder="https://cal.com/your-name/dental-impression" value={calCfg.impression} onChange={v => setCalCfg(p => ({ ...p, impression: v }))} />
+          </Field>
+          <Field label="FITTING — booking link">
+            <Input placeholder="https://cal.com/your-name/fitting" value={calCfg.fitting} onChange={v => setCalCfg(p => ({ ...p, fitting: v }))} />
+          </Field>
+          <div style={{ fontSize:'11px', color:'var(--txt-3)', lineHeight:1.8, padding:'10px 12px', background:'var(--field)', borderRadius:'9px', border:'1px solid var(--line)', marginBottom:'10px' }}>
+            Also add a webhook in Cal.com (<b style={{ color:'var(--txt-2)' }}>Settings → Developer → Webhooks</b>) with trigger <b style={{ color:'var(--txt-2)' }}>Booking created</b>, pointing to:<br />
+            <span style={{ color:'var(--gold)', fontFamily:'monospace', fontSize:'10.5px', wordBreak:'break-all' }}>{CAL_WEBHOOK_URL}</span>
+            <button onClick={() => { navigator.clipboard?.writeText(CAL_WEBHOOK_URL); toast('Copied', 'Webhook URL copied.') }}
+              style={{ marginLeft:'8px', background:'var(--card)', border:'1px solid var(--line-2)', borderRadius:'6px', color:'var(--txt-2)', fontSize:'10px', padding:'2px 8px', cursor:'pointer', fontFamily:'inherit' }}>Copy</button>
+          </div>
+          <button onClick={saveCalLinks} style={{ ...ghostBtn, width:'100%', marginBottom:'20px', flex:'unset' }}>Save booking links</button>
 
           <SectionTitle>Materials</SectionTitle>
           <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginBottom:'10px' }}>
