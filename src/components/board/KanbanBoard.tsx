@@ -422,6 +422,10 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
           <div style={{ display:'flex', gap:'9px' }}>
             <button onClick={() => setShowSettings(false)} style={primaryBtn}>Done</button>
           </div>
+          <button onClick={() => { window.location.href = '/billing' }}
+            style={{ width:'100%', background:'none', border:'none', color:'var(--txt-3)', fontSize:'12px', cursor:'pointer', marginTop:'12px', fontFamily:'inherit', textDecoration:'underline' }}>
+            💳 Manage subscription
+          </button>
         </Modal>
       )}
 

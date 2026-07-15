@@ -17,6 +17,18 @@ function adminSupabase() {
   )
 }
 
+// Map every Stripe subscription status onto the 4 values our DB allows
+const STATUS_MAP: Record<string, 'trialing' | 'active' | 'past_due' | 'canceled'> = {
+  trialing: 'trialing',
+  active: 'active',
+  past_due: 'past_due',
+  unpaid: 'past_due',
+  incomplete: 'past_due',
+  paused: 'past_due',
+  canceled: 'canceled',
+  incomplete_expired: 'canceled',
+}
+
 export async function POST(req: Request) {
   const body = await req.text()
   const sig  = req.headers.get('stripe-signature')!
@@ -35,25 +47,26 @@ export async function POST(req: Request) {
 
   const supabase = adminSupabase()
 
+  async function applySubscription(sub: Stripe.Subscription, forceStatus?: 'canceled') {
+    const status = forceStatus ?? STATUS_MAP[sub.status] ?? 'canceled'
+    const patch = { stripe_subscription_id: sub.id, subscription_status: status }
+    const studioId = sub.metadata?.studioId
+    if (studioId) {
+      await supabase.from('studios').update(patch).eq('id', studioId)
+    } else {
+      // Fallback: match on the Stripe customer
+      await supabase.from('studios').update(patch).eq('stripe_customer_id', sub.customer as string)
+    }
+  }
+
   switch (event.type) {
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
-      const sub = event.data.object as Stripe.Subscription
-      const studioId = sub.metadata?.studioId
-      if (studioId) {
-        await supabase.from('studios').update({
-          stripe_subscription_id: sub.id,
-          subscription_status: sub.status as any,
-        }).eq('id', studioId)
-      }
+      await applySubscription(event.data.object as Stripe.Subscription)
       break
     }
     case 'customer.subscription.deleted': {
-      const sub = event.data.object as Stripe.Subscription
-      const studioId = sub.metadata?.studioId
-      if (studioId) {
-        await supabase.from('studios').update({ subscription_status: 'canceled' }).eq('id', studioId)
-      }
+      await applySubscription(event.data.object as Stripe.Subscription, 'canceled')
       break
     }
     case 'invoice.payment_failed': {

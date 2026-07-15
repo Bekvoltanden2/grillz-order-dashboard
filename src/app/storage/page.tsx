@@ -16,6 +16,10 @@ export default async function Storage() {
   if (!profile.studios) redirect('/login')
 
   const studio = profile.studios as any
+
+  // Paywall: no active subscription or trial → no storage either
+  if (studio.subscription_status !== 'active' && studio.subscription_status !== 'trialing') redirect('/billing')
+
   const { data: items } = await supabase
     .from('stock_items').select('*').eq('studio_id', studio.id).order('name')
   const { data: movements } = await supabase

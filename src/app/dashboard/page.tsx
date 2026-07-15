@@ -17,6 +17,10 @@ export default async function DashboardPage() {
   if (!profile.studios) redirect('/onboarding')
 
   const studio = profile.studios as any
+
+  // Paywall: no active subscription or trial → no board
+  if (studio.subscription_status !== 'active' && studio.subscription_status !== 'trialing') redirect('/billing')
+
   const { data: orders } = await supabase.from('orders').select('*').eq('studio_id', studio.id).order('created_at', { ascending: false })
   const { data: materials } = await supabase.from('materials').select('*').eq('studio_id', studio.id).order('created_at')
   const { data: stockItems } = await supabase.from('stock_items').select('*').eq('studio_id', studio.id).order('name')
