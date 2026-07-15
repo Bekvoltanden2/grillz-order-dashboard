@@ -17,6 +17,8 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [activeNav, setActiveNav] = useState('Dashboard')
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const NAV_ITEMS: [string, string, string][] = [
     ['▦', 'Dashboard', 'sec-top'],
@@ -44,6 +46,19 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
     setEditStudio(s)
     setEditForm({ send: s.webhook_send_url ?? '', impressionUrl: s.cal_impression_url ?? '', fittingUrl: s.cal_fitting_url ?? '' })
     setSaveMsg('')
+    setConfirmDel(false)
+  }
+
+  async function deleteStudio() {
+    if (!editStudio) return
+    setDeleting(true)
+    // Cascades in the DB: orders, materials, stock items and movements are removed with the studio.
+    // The owner's login remains — they'd land on onboarding if they ever sign in again.
+    const { error } = await supabase.from('studios').delete().eq('id', editStudio.id)
+    setDeleting(false)
+    if (error) { setSaveMsg(error.message); return }
+    setEditStudio(null)
+    router.refresh()
   }
 
   async function saveStudioConfig() {
@@ -273,6 +288,32 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
                 {saving ? 'Saving…' : saveMsg || 'Save'}
               </button>
             </div>
+
+            {/* Danger zone */}
+            <div style={{ height:'1px', background:'var(--line)', margin:'18px 0 14px' }} />
+            {!confirmDel ? (
+              <button onClick={() => setConfirmDel(true)}
+                style={{ width:'100%', background:'transparent', border:'1px solid rgba(224,92,92,.35)', borderRadius:'10px', color:'var(--red)', fontFamily:'inherit', fontSize:'12.5px', fontWeight:600, padding:'10px', cursor:'pointer' }}>
+                Delete this studio…
+              </button>
+            ) : (
+              <>
+                <div style={{ fontSize:'11.5px', color:'var(--red)', lineHeight:1.6, marginBottom:'10px' }}>
+                  This permanently deletes <b>{editStudio.name}</b> including all its orders, materials and stock history.
+                  This cannot be undone. (The owner’s login remains, but loses access.)
+                </div>
+                <div style={{ display:'flex', gap:'9px' }}>
+                  <button onClick={() => setConfirmDel(false)}
+                    style={{ flex:1, background:'transparent', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'10px', padding:'10px', color:'var(--txt-2)', fontFamily:'inherit', fontSize:'12.5px', fontWeight:600, cursor:'pointer' }}>
+                    Keep it
+                  </button>
+                  <button onClick={deleteStudio} disabled={deleting}
+                    style={{ flex:1, background:'var(--red)', border:'none', borderRadius:'10px', padding:'10px', color:'#fff', fontFamily:'inherit', fontSize:'12.5px', fontWeight:700, cursor:'pointer', opacity: deleting ? .7 : 1 }}>
+                    {deleting ? 'Deleting…' : 'Yes, delete studio'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
