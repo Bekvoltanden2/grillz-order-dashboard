@@ -1,10 +1,20 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Order, Material, Studio, StockItem, COLUMNS, IMPRESSION_COL, FITTING_COL, NOTE_PRESETS } from '@/lib/types'
 import { useToast } from '@/components/ui/Toast'
 
 const COMPLETE_COL = 7
+
+// Minimal board view: the four production stages (2-5) collapse into "Working on it".
+// Orders keep their real column_index — this is purely a display grouping.
+const MINIMAL_GROUPS: { label: string; cols: number[]; nextLabel: string | null; nextCol: number | null }[] = [
+  { label: 'New order',        cols: [0],          nextLabel: 'Approve',           nextCol: 1 },
+  { label: 'Impression appt.', cols: [1],          nextLabel: 'Appointment done',  nextCol: 2 },
+  { label: 'Working on it',    cols: [2, 3, 4, 5], nextLabel: 'Ready for fitting', nextCol: 6 },
+  { label: 'Fitting',          cols: [6],          nextLabel: 'Fitting done',      nextCol: 7 },
+  { label: 'Complete',         cols: [7],          nextLabel: null,                nextCol: null },
+]
 
 interface Props {
   initialOrders: Order[]
@@ -30,8 +40,32 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   const [showSettings, setShowSettings] = useState(false)
   const [stock, setStock] = useState<StockItem[]>(initialStock)
   const [recordFor, setRecordFor] = useState<Order | null>(null)   // order whose materials we're recording
+  const [boardView, setBoardView] = useState<'expanded' | 'minimal'>('expanded')
+  const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
   const supabase = createClient()
   const { toast } = useToast()
+
+  // Load saved preferences (client-only, after hydration)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('gs_board_view') === 'minimal') setBoardView('minimal')
+      if (localStorage.getItem('gs_theme') === 'light') setThemeState('light')
+    } catch {}
+  }, [])
+
+  function changeView(v: 'expanded' | 'minimal') {
+    setBoardView(v)
+    try { localStorage.setItem('gs_board_view', v) } catch {}
+  }
+
+  function changeTheme(t: 'dark' | 'light') {
+    setThemeState(t)
+    try {
+      localStorage.setItem('gs_theme', t)
+      if (t === 'light') document.documentElement.dataset.theme = 'light'
+      else delete document.documentElement.dataset.theme
+    } catch {}
+  }
 
   // ---- new order form state ----
   const [form, setForm] = useState({ naam:'', phone:'', email:'', soort:'', mat: materials[0]?.name ?? '', prijs:'' })
@@ -71,11 +105,12 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   // Deduct the recorded material usage from storage
   async function recordMaterials(o: Order, lines: { stockItemId: string; grams: number }[]) {
     const used = lines.filter(l => l.stockItemId && l.grams > 0)
+    let newStock = stock
     for (const l of used) {
-      const item = stock.find(s => s.id === l.stockItemId)
+      const item = newStock.find(s => s.id === l.stockItemId)
       if (!item) continue
       const newTotal = Math.max(0, item.grams - l.grams)
-      setStock(prev => prev.map(s => s.id === item.id ? { ...s, grams: newTotal } : s))
+      newStock = newStock.map(s => s.id === item.id ? { ...s, grams: newTotal } : s)
       await supabase.from('stock_items').update({ grams: newTotal }).eq('id', item.id)
       await supabase.from('stock_movements').insert({
         studio_id: studio.id, stock_item_id: item.id, change_grams: -l.grams, reason: 'usage', order_id: o.id,
@@ -84,6 +119,9 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
         toast('Low stock ⚠️', `${item.name} is down to ${Math.round(newTotal * 10) / 10} g.`)
       }
     }
+    setStock(newStock)
+    // Let the header notification bell update live
+    window.dispatchEvent(new CustomEvent('gs-stock', { detail: newStock }))
     await updateOrder(o.id, { materials_recorded: true })
     setRecordFor(null)
     if (used.length) toast('Materials recorded', `Stock updated for ${o.customer_name}'s order.`)
@@ -197,22 +235,45 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
     setDragging(id)
   }
 
+  // Columns for the active view: expanded = all 8 stages, minimal = 5 groups
+  const viewColumns: { title: string; short: string; cols: number[] }[] =
+    boardView === 'minimal'
+      ? MINIMAL_GROUPS.map(g => ({ title: g.label, short: g.label, cols: g.cols }))
+      : COLUMNS.map((c, i) => ({ title: c.label, short: c.short, cols: [i] }))
+
+  // Stage label + next step for the card modal, respecting the active view
+  function stageInfo(o: Order) {
+    if (boardView === 'minimal') {
+      const g = MINIMAL_GROUPS.find(g => g.cols.includes(o.column_index)) ?? MINIMAL_GROUPS[0]
+      return { label: g.label, nextLabel: g.nextLabel, nextCol: g.nextCol }
+    }
+    const c = COLUMNS[o.column_index]
+    return { label: c.label, nextLabel: c.next, nextCol: c.next ? o.column_index + 1 : null }
+  }
+
   return (
     <>
       {/* Board */}
       <div style={{ display:'flex', gap:'10px', overflowX:'auto', padding:'4px 14px 20px', flex:1, alignItems:'flex-start', scrollbarWidth:'thin' }}>
-        {COLUMNS.map((col, ci) => {
-          const items = orders.filter(o => o.column_index === ci)
+        {viewColumns.map((vc, vi) => {
+          const items = orders.filter(o => vc.cols.includes(o.column_index))
           return (
-            <div key={ci}
-              style={{ flex:'1 1 0', minWidth:'140px', background:'var(--col)', border:`1px solid ${dropCol === ci ? 'var(--gold)' : 'var(--line)'}`, borderRadius:'14px', padding:'8px', maxHeight:'100%', display:'flex', flexDirection:'column', outline: dropCol === ci ? '1.5px dashed var(--gold)' : 'none', outlineOffset:'-3px' }}
-              onDragOver={e => { e.preventDefault(); setDropCol(ci) }}
+            <div key={vi}
+              style={{ flex:'1 1 0', minWidth:'140px', background:'var(--col)', border:`1px solid ${dropCol === vi ? 'var(--gold)' : 'var(--line)'}`, borderRadius:'14px', padding:'8px', maxHeight:'100%', display:'flex', flexDirection:'column', outline: dropCol === vi ? '1.5px dashed var(--gold)' : 'none', outlineOffset:'-3px' }}
+              onDragOver={e => { e.preventDefault(); setDropCol(vi) }}
               onDragLeave={() => setDropCol(null)}
-              onDrop={e => { e.preventDefault(); setDropCol(null); moveOrder(e.dataTransfer.getData('id'), ci) }}
+              onDrop={e => {
+                e.preventDefault(); setDropCol(null)
+                const id = e.dataTransfer.getData('id')
+                const cur = orders.find(x => x.id === id)
+                if (!cur) return
+                // Dropping into a group keeps the order's real stage if it's already inside the group
+                moveOrder(id, vc.cols.includes(cur.column_index) ? cur.column_index : vc.cols[0])
+              }}
             >
               {/* Column header */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'6px', padding:'2px 3px 9px' }}>
-                <span title={col.label} style={{ fontSize:'11.5px', fontWeight:600, letterSpacing:'.01em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{col.short}</span>
+                <span title={vc.title} style={{ fontSize:'11.5px', fontWeight:600, letterSpacing:'.01em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{vc.short}</span>
                 <span style={{ fontSize:'10.5px', color:'var(--txt-3)', background:'var(--card)', borderRadius:'20px', padding:'1px 7px', minWidth:'20px', textAlign:'center', flexShrink:0 }}>{items.length}</span>
               </div>
 
@@ -220,17 +281,17 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
               <div style={{ display:'flex', flexDirection:'column', gap:'9px', overflowY:'auto', padding:'1px' }}>
                 {items.map(o => {
                   let statusTag = null
-                  if (ci === IMPRESSION_COL) {
+                  if (o.column_index === IMPRESSION_COL) {
                     if (o.impression_date) statusTag = <span title="Appointment confirmed" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ confirmed</span>
                     else if (o.impression_link_sent) statusTag = <span title="Booking link sent" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>link sent</span>
                   }
-                  if (ci === FITTING_COL) {
+                  if (o.column_index === FITTING_COL) {
                     if (o.fitting_date) statusTag = <span title="Appointment confirmed" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ confirmed</span>
                     else if (o.fitting_link_sent) statusTag = <span title="Booking link sent" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(201,205,212,.12)', color:'var(--silver)' }}>link sent</span>
                   }
-                  if (ci === COMPLETE_COL && stock.length > 0) {
+                  if (o.column_index === COMPLETE_COL && stock.length > 0) {
                     if (o.materials_recorded) statusTag = <span title="Materials deducted from stock" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(109,212,154,.13)', color:'var(--green)' }}>✓ stock deducted</span>
-                    else statusTag = <span title="Materials not deducted yet — open the card to record them" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'rgba(212,175,106,.12)', color:'var(--gold-b)' }}>stock not deducted</span>
+                    else statusTag = <span title="Materials not deducted yet — open the card to record them" style={{ display:'inline-block', fontSize:'10px', borderRadius:'6px', padding:'2px 7px', marginTop:'7px', background:'var(--tint-bg)', color:'var(--gold-b)' }}>stock not deducted</span>
                   }
                   return (
                     <div key={o.id} draggable
@@ -257,7 +318,7 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
                       {o.notes.length > 0 && (
                         <div style={{ display:'flex', flexWrap:'wrap', gap:'5px', marginTop:'8px' }}>
                           {o.notes.map(n => (
-                            <span key={n} style={{ fontSize:'10px', borderRadius:'6px', padding:'2px 7px', background:'rgba(212,175,106,.1)', color:'var(--gold-b)', border:'1px solid rgba(212,175,106,.2)' }}>{n}</span>
+                            <span key={n} style={{ fontSize:'10px', borderRadius:'6px', padding:'2px 7px', background:'var(--tint-bg)', color:'var(--gold-b)', border:'1px solid var(--tint-border)' }}>{n}</span>
                           ))}
                         </div>
                       )}
@@ -266,7 +327,7 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
                 })}
               </div>
 
-              {ci === 0 && (
+              {vi === 0 && (
                 <div onClick={() => setShowNew(true)} style={{ fontSize:'12.5px', color:'var(--txt-3)', padding:'9px 4px 2px', cursor:'pointer', marginTop:'4px' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--txt-2)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--txt-3)'}
@@ -285,9 +346,11 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
           <CardDetail
             order={activeCard}
             materials={matList}
+            stageLabel={stageInfo(activeCard).label}
+            nextLabel={stageInfo(activeCard).nextLabel}
             canRecord={activeCard.column_index === COMPLETE_COL && !activeCard.materials_recorded && stock.length > 0}
             onRecord={() => { const o = activeCard; setOpenCard(null); setRecordFor(o) }}
-            onNext={async () => { await moveOrder(activeCard.id, activeCard.column_index + 1); setOpenCard(null) }}
+            onNext={async () => { const t = stageInfo(activeCard).nextCol; if (t != null) await moveOrder(activeCard.id, t); setOpenCard(null) }}
             onAddNote={n => addNote(activeCard.id, n)}
             onRemoveNote={n => removeNote(activeCard.id, n)}
             onDelete={() => deleteOrder(activeCard.id)}
@@ -326,12 +389,24 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
       {showSettings && (
         <Modal onClose={() => setShowSettings(false)} wide>
           <div style={{ fontFamily:'Georgia,serif', fontSize:'19px', fontWeight:600, marginBottom:'4px' }}>Settings</div>
-          <div style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'20px' }}>Manage the materials available for your studio.</div>
+          <div style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'20px' }}>Board layout, appearance and materials.</div>
+
+          <SectionTitle>Board layout</SectionTitle>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'20px' }}>
+            <ToggleBtn active={boardView === 'expanded'} onClick={() => changeView('expanded')} title="Expanded" sub="All 8 stages" />
+            <ToggleBtn active={boardView === 'minimal'} onClick={() => changeView('minimal')} title="Minimal" sub="5 stages" />
+          </div>
+
+          <SectionTitle>Appearance</SectionTitle>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'20px' }}>
+            <ToggleBtn active={theme === 'dark'} onClick={() => changeTheme('dark')} title="Dark" sub="Black & gold" />
+            <ToggleBtn active={theme === 'light'} onClick={() => changeTheme('light')} title="Light" sub="Grey & blue" />
+          </div>
 
           <SectionTitle>Materials</SectionTitle>
           <div style={{ display:'flex', flexDirection:'column', gap:'6px', marginBottom:'10px' }}>
             {matList.map(m => (
-              <div key={m.id} style={{ display:'flex', alignItems:'center', gap:'8px', background:'#0F0F12', border:'1px solid var(--line)', borderRadius:'9px', padding:'9px 11px' }}>
+              <div key={m.id} style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--field)', border:'1px solid var(--line)', borderRadius:'9px', padding:'9px 11px' }}>
                 <span style={{ width:'10px', height:'10px', borderRadius:'50%', background:m.color, flexShrink:0 }} />
                 <span style={{ flex:1, fontSize:'13px' }}>{m.name}</span>
                 <button onClick={() => deleteMaterial(m.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--txt-3)', fontSize:'16px', padding:'0 2px' }}>×</button>
@@ -339,7 +414,7 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
             ))}
           </div>
           <div style={{ display:'flex', gap:'7px', alignItems:'center', marginBottom:'20px' }}>
-            <input type="color" value={newMat.color} onChange={e => setNewMat(p => ({...p, color:e.target.value}))} style={{ flex:'0 0 38px', background:'#0F0F12', border:'1px solid var(--line-2)', borderRadius:'8px', padding:'4px 5px', cursor:'pointer', height:'38px' }} />
+            <input type="color" value={newMat.color} onChange={e => setNewMat(p => ({...p, color:e.target.value}))} style={{ flex:'0 0 38px', background:'var(--field)', border:'1px solid var(--line-2)', borderRadius:'8px', padding:'4px 5px', cursor:'pointer', height:'38px' }} />
             <input placeholder="Material name (e.g. Rose Gold)" value={newMat.name} onChange={e => setNewMat(p => ({...p, name:e.target.value}))} onKeyDown={e => e.key === 'Enter' && addMaterial()} style={{ ...inputStyle, flex:1 }} />
             <button onClick={addMaterial} style={{ ...ghostBtn, flex:'0 0 auto', padding:'8px 14px', marginTop:0 }}>Add</button>
           </div>
@@ -421,17 +496,17 @@ function RecordMaterials({ order: o, stock, onConfirm, onSkip }: {
 }
 
 // ---- Card detail ----
-function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
-  order: Order; materials: Material[]; canRecord: boolean; onRecord: () => void
+function CardDetail({ order: o, materials, stageLabel, nextLabel, canRecord, onRecord, onNext, onAddNote, onRemoveNote, onDelete, onClose }: {
+  order: Order; materials: Material[]; stageLabel: string; nextLabel: string | null; canRecord: boolean; onRecord: () => void
   onNext: () => void; onAddNote: (n: string) => void; onRemoveNote: (n: string) => void; onDelete: () => void; onClose: () => void
 }) {
   const [noteInput, setNoteInput] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const col = COLUMNS[o.column_index]
+  const isComplete = o.column_index === COMPLETE_COL
   return (
     <>
       <div style={{ fontFamily:'Georgia,serif', fontSize:'19px', fontWeight:600, marginBottom:'4px' }}>{o.customer_name}</div>
-      <span style={{ display:'inline-block', fontSize:'11px', color:'var(--gold)', border:'1px solid var(--gold)', borderRadius:'20px', padding:'2px 9px', marginBottom:'14px' }}>#{o.order_number} · {col.label}</span>
+      <span style={{ display:'inline-block', fontSize:'11px', color:'var(--gold)', border:'1px solid var(--gold)', borderRadius:'20px', padding:'2px 9px', marginBottom:'14px' }}>#{o.order_number} · {stageLabel}</span>
 
       {([
         ['Grillz type', o.grillz_type],
@@ -439,7 +514,7 @@ function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNot
         ['Price', `€${o.price}`],
         ...(o.customer_phone ? [['Phone', o.customer_phone]] : []),
         ...(o.customer_email ? [['Email', o.customer_email]] : []),
-        ...(!col.next ? [['Stock', o.materials_recorded ? 'deducted ✓' : 'not deducted yet']] : []),
+        ...(isComplete ? [['Stock', o.materials_recorded ? 'deducted ✓' : 'not deducted yet']] : []),
       ] as [string, string][]).map(([k, v]) => (
         <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', padding:'8px 0', borderBottom:'1px solid var(--line)' }}>
           <span style={{ color:'var(--txt-2)' }}>{k}</span>
@@ -463,7 +538,7 @@ function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNot
         <div style={{ fontSize:'11.5px', color:'var(--txt-2)', letterSpacing:'.02em', marginBottom:'8px' }}>NOTES</div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'8px' }}>
           {o.notes.map(n => (
-            <span key={n} style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'11.5px', borderRadius:'8px', padding:'5px 10px', background:'rgba(212,175,106,.1)', color:'var(--gold-b)', border:'1px solid rgba(212,175,106,.2)' }}>
+            <span key={n} style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'11.5px', borderRadius:'8px', padding:'5px 10px', background:'var(--tint-bg)', color:'var(--gold-b)', border:'1px solid var(--tint-border)' }}>
               {n}
               <span onClick={() => onRemoveNote(n)} style={{ cursor:'pointer', color:'var(--txt-3)', fontSize:'13px', marginLeft:'2px' }}>×</span>
             </span>
@@ -476,28 +551,28 @@ function CardDetail({ order: o, materials, canRecord, onRecord, onNext, onAddNot
         </div>
         <div style={{ display:'flex', gap:'8px' }}>
           <input placeholder="Add a note…" value={noteInput} onChange={e => setNoteInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { onAddNote(noteInput); setNoteInput('') } }} maxLength={40}
-            style={{ flex:1, background:'#0F0F12', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt)', fontFamily:'inherit', fontSize:'13px', padding:'8px 11px', outline:'none' }} />
+            style={{ flex:1, background:'var(--field)', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt)', fontFamily:'inherit', fontSize:'13px', padding:'8px 11px', outline:'none' }} />
           <button onClick={() => { onAddNote(noteInput); setNoteInput('') }} style={{ background:'var(--col)', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt-2)', fontFamily:'inherit', fontSize:'12px', padding:'8px 13px', cursor:'pointer' }}>Add</button>
         </div>
       </div>
 
       {canRecord && (
         <button onClick={onRecord}
-          style={{ width:'100%', marginTop:'16px', background:'rgba(212,175,106,.12)', border:'1px solid rgba(212,175,106,.35)', borderRadius:'10px', color:'var(--gold-b)', fontFamily:'inherit', fontSize:'13px', fontWeight:600, padding:'10px', cursor:'pointer' }}>
+          style={{ width:'100%', marginTop:'16px', background:'var(--tint-bg)', border:'1px solid var(--tint-border)', borderRadius:'10px', color:'var(--gold-b)', fontFamily:'inherit', fontSize:'13px', fontWeight:600, padding:'10px', cursor:'pointer' }}>
           📦 Record materials used
         </button>
       )}
 
       <div style={{ display:'flex', gap:'9px', marginTop:'18px' }}>
         <button onClick={onClose} style={ghostBtn}>Close</button>
-        {col.next && <button onClick={onNext} style={primaryBtn}>{col.next} ▸</button>}
-        {!col.next && !confirmDelete && (
+        {nextLabel && <button onClick={onNext} style={primaryBtn}>{nextLabel} ▸</button>}
+        {isComplete && !confirmDelete && (
           <button onClick={() => setConfirmDelete(true)}
             style={{ ...ghostBtn, borderColor:'rgba(224,92,92,.4)', color:'var(--red)' }}>
             Delete order
           </button>
         )}
-        {!col.next && confirmDelete && (
+        {isComplete && confirmDelete && (
           <>
             <button onClick={() => setConfirmDelete(false)} style={ghostBtn}>Cancel</button>
             <button onClick={onDelete} style={{ ...ghostBtn, borderColor:'rgba(224,92,92,.4)', color:'var(--red)', fontWeight:700 }}>
@@ -521,7 +596,7 @@ function DetRow({ label, value }: { label: string; value: string }) {
 
 function WaitingBadge() {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'#0F0F12', border:'1px solid var(--line-2)', borderRadius:'10px', padding:'11px 13px', marginTop:'4px', marginBottom:'2px', fontSize:'12px', color:'var(--txt-2)' }}>
+    <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--field)', border:'1px solid var(--line-2)', borderRadius:'10px', padding:'11px 13px', marginTop:'4px', marginBottom:'2px', fontSize:'12px', color:'var(--txt-2)' }}>
       <span className="animate-pulse-dot" style={{ width:'7px', height:'7px', borderRadius:'50%', background:'var(--gold)', flexShrink:0 }} />
       Waiting for customer to book via Calendly…
     </div>
@@ -533,7 +608,7 @@ function Modal({ children, onClose, wide }: { children: React.ReactNode; onClose
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{ position:'fixed', inset:0, background:'rgba(6,6,8,.72)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'18px', zIndex:40 }}>
-      <div style={{ background:'#16161A', border:'1px solid var(--line-2)', borderRadius:'18px', padding:'22px', width:'100%', maxWidth: wide ? '440px' : '400px', maxHeight:'90vh', overflowY:'auto' }}>
+      <div style={{ background:'var(--col)', border:'1px solid var(--line-2)', borderRadius:'18px', padding:'22px', width:'100%', maxWidth: wide ? '440px' : '400px', maxHeight:'90vh', overflowY:'auto' }}>
         {children}
       </div>
     </div>
@@ -557,10 +632,23 @@ function Input({ value, onChange, placeholder, type = 'text' }: { value: string;
   return <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={inputStyle} />
 }
 
+function ToggleBtn({ active, onClick, title, sub }: { active: boolean; onClick: () => void; title: string; sub: string }) {
+  return (
+    <button onClick={onClick}
+      style={{ flex:1, padding:'10px 8px', borderRadius:'10px', cursor:'pointer', fontFamily:'inherit', textAlign:'center',
+        background: active ? 'var(--tint-bg)' : 'transparent',
+        border: `1px solid ${active ? 'var(--gold)' : 'var(--line-2)'}`,
+        color: active ? 'var(--gold-b)' : 'var(--txt-2)' }}>
+      <div style={{ fontSize:'13px', fontWeight:600 }}>{title}</div>
+      <div style={{ fontSize:'10.5px', marginTop:'2px', opacity:.8 }}>{sub}</div>
+    </button>
+  )
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize:'12px', color:'var(--txt-2)', letterSpacing:'.05em', textTransform:'uppercase', marginBottom:'10px' }}>{children}</div>
 }
 
-const inputStyle: React.CSSProperties = { width:'100%', background:'#0F0F12', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt)', fontFamily:'inherit', fontSize:'14px', padding:'10px 11px', outline:'none' }
-const primaryBtn: React.CSSProperties = { flex:1, border:'none', borderRadius:'10px', padding:'11px', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer', background:'linear-gradient(180deg,#E8C77E,#D4AF6A)', color:'#0C0C0E' }
+const inputStyle: React.CSSProperties = { width:'100%', background:'var(--field)', border:'1px solid var(--line-2)', borderRadius:'9px', color:'var(--txt)', fontFamily:'inherit', fontSize:'14px', padding:'10px 11px', outline:'none' }
+const primaryBtn: React.CSSProperties = { flex:1, border:'none', borderRadius:'10px', padding:'11px', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer', background:'linear-gradient(180deg,var(--gold-b),var(--gold))', color:'var(--on-accent)' }
 const ghostBtn:   React.CSSProperties = { flex:1, borderRadius:'10px', padding:'11px', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer', background:'transparent', border:'1px solid var(--line-2)', color:'var(--txt-2)' }

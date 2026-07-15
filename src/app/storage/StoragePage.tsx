@@ -110,7 +110,7 @@ export default function StoragePage({ studioId, studioName, initialItems, initia
           </div>
         </div>
         <button onClick={() => setShowAdd(true)}
-          style={{ fontSize: '13.5px', fontWeight: 600, color: '#0C0C0E', background: 'linear-gradient(180deg,#E8C77E,#D4AF6A)', border: 'none', borderRadius: '10px', padding: '10px 16px', cursor: 'pointer' }}>
+          style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--on-accent)', background: 'linear-gradient(180deg,var(--gold-b),var(--gold))', border: 'none', borderRadius: '10px', padding: '10px 16px', cursor: 'pointer' }}>
           + New material
         </button>
       </header>
@@ -143,8 +143,8 @@ export default function StoragePage({ studioId, studioName, initialItems, initia
                   </div>
 
                   {/* bar */}
-                  <div style={{ height: '5px', background: '#0F0F12', borderRadius: '4px', marginTop: '12px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: low ? 'var(--red)' : 'linear-gradient(90deg,#E8C77E,#D4AF6A)' }} />
+                  <div style={{ height: '5px', background: 'var(--field)', borderRadius: '4px', marginTop: '12px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: low ? 'var(--red)' : 'linear-gradient(90deg,var(--gold-b),var(--gold))' }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10.5px', color: 'var(--txt-3)' }}>
                     <span>warn below {fmtG(item.low_threshold)}</span>
@@ -236,7 +236,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(6,6,8,.72)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px', zIndex: 40 }}>
-      <div style={{ background: '#16161A', border: '1px solid var(--line-2)', borderRadius: '18px', padding: '22px', width: '100%', maxWidth: '380px' }}>
+      <div style={{ background: 'var(--col)', border: '1px solid var(--line-2)', borderRadius: '18px', padding: '22px', width: '100%', maxWidth: '380px' }}>
         {children}
       </div>
     </div>
@@ -248,6 +248,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const modalH: React.CSSProperties = { fontFamily: 'Georgia,serif', fontSize: '19px', fontWeight: 600, marginBottom: '4px' }
 const modalLead: React.CSSProperties = { fontSize: '12.5px', color: 'var(--txt-2)', marginBottom: '16px' }
-const inp: React.CSSProperties = { width: '100%', background: '#0F0F12', border: '1px solid var(--line-2)', borderRadius: '9px', color: 'var(--txt)', fontFamily: 'inherit', fontSize: '14px', padding: '10px 11px', outline: 'none' }
-const primaryBtn: React.CSSProperties = { flex: 1, border: 'none', borderRadius: '10px', padding: '11px', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', background: 'linear-gradient(180deg,#E8C77E,#D4AF6A)', color: '#0C0C0E' }
+const inp: React.CSSProperties = { width: '100%', background: 'var(--field)', border: '1px solid var(--line-2)', borderRadius: '9px', color: 'var(--txt)', fontFamily: 'inherit', fontSize: '14px', padding: '10px 11px', outline: 'none' }
+const primaryBtn: React.CSSProperties = { flex: 1, border: 'none', borderRadius: '10px', padding: '11px', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', background: 'linear-gradient(180deg,var(--gold-b),var(--gold))', color: 'var(--on-accent)' }
 const ghostBtn: React.CSSProperties = { flex: 1, borderRadius: '10px', padding: '11px', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--txt-2)' }

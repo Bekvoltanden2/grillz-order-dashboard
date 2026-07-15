@@ -69,7 +69,7 @@ export default function OnboardingForm({ userId, userEmail, defaultName }: { use
     router.refresh()
   }
 
-  const inp: React.CSSProperties = { width:'100%', background:'#0F0F12', border:'1px solid var(--line-2)', borderRadius:'10px', color:'var(--txt)', fontFamily:'inherit', fontSize:'14px', padding:'11px 13px', outline:'none' }
+  const inp: React.CSSProperties = { width:'100%', background:'var(--field)', border:'1px solid var(--line-2)', borderRadius:'10px', color:'var(--txt)', fontFamily:'inherit', fontSize:'14px', padding:'11px 13px', outline:'none' }
   const primaryBtn: React.CSSProperties = { width:'100%', background:'linear-gradient(180deg,#E8C77E,#D4AF6A)', border:'none', borderRadius:'11px', padding:'13px', fontFamily:'inherit', fontSize:'14px', fontWeight:600, color:'#0C0C0E', cursor:'pointer', opacity: loading ? .7 : 1 }
 
   return (

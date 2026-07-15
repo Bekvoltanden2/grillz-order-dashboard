@@ -36,7 +36,7 @@ export default function LoginForm() {
   }
 
   const inputBase: React.CSSProperties = {
-    width: '100%', background: '#0F0F12', border: '1px solid var(--line-2)',
+    width: '100%', background: 'var(--field)', border: '1px solid var(--line-2)',
     borderRadius: '10px', color: 'var(--txt)', fontFamily: 'inherit',
     fontSize: '14px', padding: '11px 13px', outline: 'none', transition: 'border-color .15s',
   }

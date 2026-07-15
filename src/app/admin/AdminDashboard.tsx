@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { COLUMNS } from '@/lib/types'
 
-const STAGE_COLORS = ['#7EB8E8','#D4AF6A','#E8C77E','#9B8FD4','#6dd49a','#E05C5C','#C9CDD4','#F5F2EA']
+const STAGE_COLORS = ['#7EB8E8','#D4AF6A','#E8C77E','#9B8FD4','#6dd49a','#E05C5C','#C9CDD4','var(--txt)']
 const STUDIO_AVATARS = ['linear-gradient(135deg,#D4AF6A,#b88c3e)', 'linear-gradient(135deg,#7EB8E8,#4a8fc4)', 'linear-gradient(135deg,#9B8FD4,#6e5fbf)', 'linear-gradient(135deg,#6dd49a,#3ea06a)', 'linear-gradient(135deg,#E05C5C,#b03a3a)']
 
-const inputStyle: React.CSSProperties = { width:'100%', background:'#0F0F12', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'9px', color:'#F5F2EA', fontFamily:'inherit', fontSize:'13px', padding:'9px 11px', outline:'none' }
+const inputStyle: React.CSSProperties = { width:'100%', background:'var(--field)', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'9px', color:'var(--txt)', fontFamily:'inherit', fontSize:'13px', padding:'9px 11px', outline:'none' }
 
 export default function AdminDashboard({ studios, allOrders, adminEmail }: { studios: any[]; allOrders: any[]; adminEmail: string }) {
   const router = useRouter()
@@ -144,7 +144,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'8px', marginBottom:'12px' }}>
                   {[['Total orders', orders.length, ''], ['Active', active, 'var(--green)'], ['Revenue', `€${rev.toLocaleString()}`, 'var(--gold)']].map(([l, v, c]) => (
-                    <div key={l as string} style={{ background:'#0F0F12', borderRadius:'9px', padding:'10px 11px' }}>
+                    <div key={l as string} style={{ background:'var(--field)', borderRadius:'9px', padding:'10px 11px' }}>
                       <div style={{ fontSize:'10.5px', color:'var(--txt-3)', marginBottom:'4px' }}>{l}</div>
                       <div style={{ fontSize:'17px', fontWeight:600, color: (c as string) || 'var(--txt)' }}>{v}</div>
                     </div>
@@ -165,7 +165,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
                   ))}
                 </div>
                 <button onClick={() => openStudioConfig(s)}
-                  style={{ marginTop:'12px', width:'100%', background:'transparent', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'9px', color:'#9A968C', fontFamily:'inherit', fontSize:'12px', padding:'8px', cursor:'pointer' }}>
+                  style={{ marginTop:'12px', width:'100%', background:'transparent', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'9px', color:'var(--txt-2)', fontFamily:'inherit', fontSize:'12px', padding:'8px', cursor:'pointer' }}>
                   ⚙ Configure automation
                 </button>
               </div>
@@ -182,7 +182,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
               {stageTotals.map((c, i) => (
                 <div key={i} style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                   <div style={{ fontSize:'11.5px', color:'var(--txt-2)', width:'160px', flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{COLUMNS[i].label}</div>
-                  <div style={{ flex:1, background:'#0F0F12', borderRadius:'4px', height:'8px' }}>
+                  <div style={{ flex:1, background:'var(--field)', borderRadius:'4px', height:'8px' }}>
                     <div style={{ height:'8px', borderRadius:'4px', background:'linear-gradient(90deg,#E8C77E,#D4AF6A)', width:`${c/maxStage*100}%` }} />
                   </div>
                   <div style={{ fontSize:'11.5px', color:'var(--txt-2)', width:'22px', textAlign:'right' }}>{c}</div>
@@ -205,7 +205,7 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
             <thead>
               <tr>
                 {['#','Customer','Studio','Grillz type','Material','Price','Stage','Status'].map(h => (
-                  <th key={h} style={{ fontSize:'11px', color:'var(--txt-3)', letterSpacing:'.04em', textTransform:'uppercase', padding:'12px 16px', textAlign:'left', borderBottom:'1px solid var(--line)', background:'#0F0F12', fontWeight:500 }}>{h}</th>
+                  <th key={h} style={{ fontSize:'11px', color:'var(--txt-3)', letterSpacing:'.04em', textTransform:'uppercase', padding:'12px 16px', textAlign:'left', borderBottom:'1px solid var(--line)', background:'var(--field)', fontWeight:500 }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -240,32 +240,32 @@ export default function AdminDashboard({ studios, allOrders, adminEmail }: { stu
       {editStudio && (
         <div onClick={e => { if (e.target === e.currentTarget) setEditStudio(null) }}
           style={{ position:'fixed', inset:0, background:'rgba(6,6,8,.72)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', padding:'18px', zIndex:40 }}>
-          <div style={{ background:'#16161A', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'18px', padding:'22px', width:'100%', maxWidth:'420px' }}>
+          <div style={{ background:'var(--col)', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'18px', padding:'22px', width:'100%', maxWidth:'420px' }}>
             <div style={{ fontFamily:'Georgia,serif', fontSize:'19px', fontWeight:600, marginBottom:'4px' }}>{editStudio.name}</div>
-            <div style={{ fontSize:'12.5px', color:'#9A968C', marginBottom:'20px' }}>Automation configuration — not visible to the studio.</div>
+            <div style={{ fontSize:'12.5px', color:'var(--txt-2)', marginBottom:'20px' }}>Automation configuration — not visible to the studio.</div>
 
-            <div style={{ fontSize:'12px', color:'#9A968C', letterSpacing:'.05em', textTransform:'uppercase', marginBottom:'10px' }}>Cal.com event URLs</div>
+            <div style={{ fontSize:'12px', color:'var(--txt-2)', letterSpacing:'.05em', textTransform:'uppercase', marginBottom:'10px' }}>Cal.com event URLs</div>
             <div style={{ marginBottom:'10px' }}>
-              <label style={{ display:'block', fontSize:'11px', color:'#9A968C', marginBottom:'5px' }}>DENTAL IMPRESSION URL</label>
+              <label style={{ display:'block', fontSize:'11px', color:'var(--txt-2)', marginBottom:'5px' }}>DENTAL IMPRESSION URL</label>
               <input value={editForm.impressionUrl} onChange={e => setEditForm(p => ({...p, impressionUrl: e.target.value}))}
                 placeholder="https://cal.com/yourname/dental-impression" style={inputStyle} />
             </div>
             <div style={{ marginBottom:'20px' }}>
-              <label style={{ display:'block', fontSize:'11px', color:'#9A968C', marginBottom:'5px' }}>FITTING URL</label>
+              <label style={{ display:'block', fontSize:'11px', color:'var(--txt-2)', marginBottom:'5px' }}>FITTING URL</label>
               <input value={editForm.fittingUrl} onChange={e => setEditForm(p => ({...p, fittingUrl: e.target.value}))}
                 placeholder="https://cal.com/yourname/fitting" style={inputStyle} />
             </div>
 
-            <div style={{ fontSize:'12px', color:'#9A968C', letterSpacing:'.05em', textTransform:'uppercase', marginBottom:'10px' }}>Make.com</div>
+            <div style={{ fontSize:'12px', color:'var(--txt-2)', letterSpacing:'.05em', textTransform:'uppercase', marginBottom:'10px' }}>Make.com</div>
             <div style={{ marginBottom:'20px' }}>
-              <label style={{ display:'block', fontSize:'11px', color:'#9A968C', marginBottom:'5px' }}>SEND LINK WEBHOOK URL</label>
+              <label style={{ display:'block', fontSize:'11px', color:'var(--txt-2)', marginBottom:'5px' }}>SEND LINK WEBHOOK URL</label>
               <input value={editForm.send} onChange={e => setEditForm(p => ({...p, send: e.target.value}))}
                 placeholder="https://hook.eu2.make.com/…" style={inputStyle} />
             </div>
 
             <div style={{ display:'flex', gap:'9px', alignItems:'center' }}>
               <button onClick={() => setEditStudio(null)}
-                style={{ flex:1, background:'transparent', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'10px', padding:'11px', color:'#9A968C', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer' }}>
+                style={{ flex:1, background:'transparent', border:'1px solid rgba(245,242,234,0.16)', borderRadius:'10px', padding:'11px', color:'var(--txt-2)', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer' }}>
                 Cancel
               </button>
               <button onClick={saveStudioConfig} disabled={saving}

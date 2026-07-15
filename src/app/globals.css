@@ -16,6 +16,33 @@
   --green: #6dd49a;
   --red: #E05C5C;
   --blue: #7EB8E8;
+  --field: #0F0F12;
+  --on-accent: #0C0C0E;
+  --tint-bg: rgba(212,175,106,.12);
+  --tint-border: rgba(212,175,106,.28);
+}
+
+/* Light mode — grey & blue */
+[data-theme="light"] {
+  --bg: #EDEFF3;
+  --col: #FFFFFF;
+  --card: #F3F5F8;
+  --card-h: #E9EDF3;
+  --line: rgba(23,32,54,0.10);
+  --line-2: rgba(23,32,54,0.18);
+  --txt: #1B2437;
+  --txt-2: #51607A;
+  --txt-3: #8792A6;
+  --gold: #3D74C4;
+  --gold-b: #639BE0;
+  --silver: #5E6B81;
+  --green: #178553;
+  --red: #C24444;
+  --blue: #3D74C4;
+  --field: #FFFFFF;
+  --on-accent: #FFFFFF;
+  --tint-bg: rgba(61,116,196,.10);
+  --tint-border: rgba(61,116,196,.30);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

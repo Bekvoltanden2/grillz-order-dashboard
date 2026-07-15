@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   return (
     <ToastProvider>
       <div style={{ background:'var(--bg)', display:'flex', flexDirection:'column', height:'100vh' }}>
-        <DashboardHeader studioName={studio.name} userEmail={user.email ?? ''} />
+        <DashboardHeader studioName={studio.name} userEmail={user.email ?? ''} stockItems={stockItems ?? []} />
         <KanbanBoard
           initialOrders={orders ?? []}
           materials={materials ?? []}
