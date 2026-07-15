@@ -46,11 +46,13 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
   const supabase = createClient()
   const { toast } = useToast()
 
-  // Load saved preferences (client-only, after hydration)
+  // Load saved preferences (client-only, after hydration).
+  // Board view is per device (localStorage); theme is per account (server sets the
+  // html attribute from the profile, we just read it back for the toggle state).
   useEffect(() => {
     try {
       if (localStorage.getItem('gs_board_view') === 'minimal') setBoardView('minimal')
-      if (localStorage.getItem('gs_theme') === 'light') setThemeState('light')
+      if (document.documentElement.dataset.theme === 'light') setThemeState('light')
     } catch {}
   }, [])
 
@@ -59,13 +61,13 @@ export default function KanbanBoard({ initialOrders, materials, stockItems: init
     try { localStorage.setItem('gs_board_view', v) } catch {}
   }
 
-  function changeTheme(t: 'dark' | 'light') {
+  async function changeTheme(t: 'dark' | 'light') {
     setThemeState(t)
-    try {
-      localStorage.setItem('gs_theme', t)
-      if (t === 'light') document.documentElement.dataset.theme = 'light'
-      else delete document.documentElement.dataset.theme
-    } catch {}
+    if (t === 'light') document.documentElement.dataset.theme = 'light'
+    else delete document.documentElement.dataset.theme
+    // Persist on the account so it follows the user, not the browser
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) await supabase.from('profiles').update({ theme: t }).eq('id', user.id)
   }
 
   // ---- new order form state ----
